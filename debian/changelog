@@ -1,0 +1,405 @@
+nant (0.85.dfsg1-9) unstable; urgency=low
+
+  [ David Paleino ]
+  * debian/control:
+    + Updated my e-mail address
+
+  [ Jo Shields ]
+  * debian/control:
+    + No-change bump to Standards 3.8.3
+    + Build-depend on -cil-dev packages
+  * debian/rules,
+    debian/control:
+    + Use mono-csc from mono-devel 2.4.3 as compiler command (Closes: #562366)
+
+ -- Jo Shields <directhex@apebox.org>  Wed, 06 Jan 2010 15:10:39 +0000
+
+nant (0.85.dfsg1-8) unstable; urgency=low
+
+  * debian/patches/006-nant-dont-build-ndoc-support.dpatch,
+    debian/control:
+    + Remove support for ndoc task - we don't use it, and it pulls
+      in undesirable dependencies. This also breaks a nasty circular
+      build-dep on libndoc1.3-cil, which is built by nant
+
+ -- Jo Shields <directhex@apebox.org>  Mon, 15 Jun 2009 20:12:47 +0100
+
+nant (0.85.dfsg1-7) unstable; urgency=low
+
+  * Upload to unstable.
+
+ -- Mirco Bauer <meebey@debian.org>  Thu, 26 Feb 2009 00:23:47 +0100
+
+nant (0.85.dfsg1-6) experimental; urgency=low
+
+  * debian/control:
+    + removed 1.0 Build-Dependencies
+    + using mono-devel instead of mono-gmcs in runtime Depends
+    + debhelper dependency bumped to >= 7
+    + added ${misc:Depends} to nant
+  * debian/patches/:
+    + 000-fix_build_system.dpatch added
+  * debian/rules:
+    + Rewritten and switched to dh7-style
+  * debian/compat bumped to 7
+  * debian/watch updated to version 3
+
+ -- David Paleino <d.paleino@gmail.com>  Wed, 03 Dec 2008 17:46:17 +0100
+
+nant (0.85.dfsg1-5) unstable; urgency=low
+
+  [ David Paleino ]
+  * debian/control:
+    + Removed Dave Beckett <dajobe@debian.org> from Uploaders.
+
+  [ Mirco Bauer ]
+  * debian/control:
+    + Enhanced package description.
+    + Added Vcs-Browser field.
+    + Bumped cli-common-dev build-dep to >= 0.5.4 as we are using
+      dh_clistrip and dh_clifixperms from it.
+  * debian/rules:
+    + Removed -m paramater to dh_clideps call, as it doesn't know such
+      parameter. 
+    + Added dh_clistrip and dh_clifixperms calls.
+    + Removed find call to fix file permissions, as dh_clifixperms takes now
+      care of this.
+    + Removed dh_shlibdeps call as this package doesn't contain native
+      binaries or libraries.
+    + Delete examples/StyleTask/SimpleExtensionObject/SimpleExtension.dll
+      before the build to force nant to rebuild it (as the file is shipped in
+      the tarball).
+  * debian/patches/005-nant-ExternalProgramBase-race.dpatch:
+    + New patch to prevent Mono detection failure due to a race on SMP
+      machines. Based on upstream fix for bug 1733671 (Closes: #483073)
+      (thanks goes to Y Giridhar Appaji Nag <appaji@debian.org> for
+       investigation and providing the dpatch)
+
+ -- Mirco Bauer <meebey@debian.org>  Thu, 16 Oct 2008 22:50:40 +0200
+
+nant (0.85.dfsg1-4) unstable; urgency=low
+
+  * Use right NDoc directory. (Closes: #492300)
+
+ -- Jelmer Vernooij <jelmer@samba.org>  Fri, 25 Jul 2008 04:29:19 +0200
+
+nant (0.85.dfsg1-3) unstable; urgency=low
+
+  * Fix build dependency on renamed libndoc1.3-cil. (Closes: #490322)
+
+ -- Jelmer Vernooij <jelmer@samba.org>  Tue, 22 Jul 2008 23:34:19 +0200
+
+nant (0.85.dfsg1-2) unstable; urgency=low
+
+  * Build against version 2.4 of nunit.
+  * Bump standards version to 3.8.0.
+  * Cope with dfsg mangling in watch file.
+
+ -- Jelmer Vernooij <jelmer@samba.org>  Sat, 14 Jun 2008 16:59:38 +0200
+
+nant (0.85.dfsg1-1) unstable; urgency=low
+
+  * Remove binaries without source. (Closes: #374634)
+
+ -- Jelmer Vernooij <jelmer@samba.org>  Mon, 26 May 2008 23:12:50 +0200
+
+nant (0.85-3) unstable; urgency=low
+
+  * Changed maintainer to Debian CLI Applications Team. (Closes: #477064)
+  * Add myself as uploader.
+  * Use newer nunit (libnunit2.2.6-cil)
+  * Add patch to work around obsolete
+    System.Reflection.Assembly.LoadWithPartialName(). (Closes: #475213)
+
+ -- Jelmer Vernooij <jelmer@samba.org>  Mon, 26 May 2008 21:15:12 +0200
+
+nant (0.85-2) unstable; urgency=low
+
+  * Depend on mono-gmcs (Closes: #408395)
+  * Added patch 001-nant-task-cs-InitializeElement.dpatch
+    to get around Mono compiler turning a former warning into an error.
+    Again. (Closes: #422838)
+
+ -- Dave Beckett <dajobe@debian.org>  Sun, 24 Jun 2007 12:15:53 -0700
+
+nant (0.85-1) unstable; urgency=low
+
+  * New upstream release
+  * It only took 2 years 11 months to go from 0.84 to 0.85
+  * Build depend indep on cli-common-dev (>= 0.4.4)
+
+ -- Dave Beckett <dajobe@debian.org>  Sun, 15 Oct 2006 00:25:05 -0700
+
+nant (0.84+0.85-rc4-1) unstable; urgency=low
+
+  * New upstream release
+  * Acknowledge NMU (Closes: #372588)
+  * Standards-Version 3.7.2
+  * Update to latest CLI policy package split.  Build-Depends-Indep: on
+    cli-common-dev, libmono-winforms1.0-cil, libmono-winforms2.0-cil and
+    mono-gmcs to get 1.0 and 2.0 packages
+  * Removed patches no longer needed:
+    - 01-AssemblyInfoTask.cs.patch
+    - 02-ScriptTask.cs.patch
+    - 03-XmlResultFormatter.cs.patch
+    - 04-SourceControl.patch
+    - 05-ExceptionTest.cs
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 12 Jun 2006 23:30:36 -0700
+
+nant (0.84+0.85-rc3-10.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Add a build-dep on libmono-winforms1.0-cil to fix FTBFS, thanks Daniel
+    Schepler. (Closes: #370163)
+    [debian/control]
+
+ -- Loic Minier <lool@dooz.org>  Sat, 10 Jun 2006 14:37:38 +0200
+
+nant (0.84+0.85-rc3-10) unstable; urgency=low
+
+  * Remove call to dh_makeclilibs since nant has no public GAC installed
+    libraries (Closes: 361976)
+
+ -- Dave Beckett <dajobe@debian.org>  Tue, 11 Apr 2006 09:09:30 -0700
+
+nant (0.84+0.85-rc3-9) unstable; urgency=low
+
+  * Update debian/watch again to use http://qa.debian.org/watch/sf.php to
+    try to follow sourceforge updates.
+  * Depend on cli-common (>= 0.2.0)
+
+ -- Dave Beckett <dajobe@debian.org>  Sat,  4 Feb 2006 23:03:29 -0800
+
+nant (0.84+0.85-rc3-8) unstable; urgency=low
+
+  * Depend on libmono-dev to get mono.pc at runtime.
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 20 Jun 2005 10:10:51 +0100
+
+nant (0.84+0.85-rc3-7) unstable; urgency=low
+
+  * Removed obsolete Build-Depend: on mono-jit and mono-utils
+  * Fixed debian/watch file
+  * Added patches from CVS HEAD to build with mono 1.1.8 packages:
+    - 01-AssemblyInfoTask.cs.patch
+    - 02-ScriptTask.cs.patch
+    - 03-XmlResultFormatter.cs.patch
+    - 04-SourceControl.patch
+    - 05-ExceptionTest.cs
+
+ -- Dave Beckett <dajobe@debian.org>  Sat, 18 Jun 2005 14:49:10 +0100
+
+nant (0.84+0.85-rc3-6) unstable; urgency=low
+
+  * Upload to unstable now that mono is in unstable
+  * Added debian/watch file
+
+ -- Dave Beckett <dajobe@debian.org>  Thu, 16 Jun 2005 11:52:30 +0100
+
+nant (0.84+0.85-rc3-5) experimental; urgency=low
+
+  * Tiny nant.1 fix
+  * Checked pending bugs that were fixed with new upstream or packaging:
+    - Nant builds reliably inside pbuilder using the mono 1.1.x
+      experimental debs (Closes: #300416).
+    - The mono resgen.exe is now correctly invoked by the
+      <resgen> task (Closes: #283740)
+
+ -- Dave Beckett <dajobe@debian.org>  Fri, 20 May 2005 19:02:36 +0100
+
+nant (0.84+0.85-rc3-4) experimental; urgency=low
+
+  * Make /usr/bin/nant exec cli and NAnt.exe rather than use old cli-wrapper
+  * Wrote a manual page for nant
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 16 May 2005 12:31:10 +0100
+
+nant (0.84+0.85-rc3-3) experimental; urgency=low
+
+  * Remove debian/resgen and update debian/dirs to new mono conventions
+  * Depend on mono 1.1.6
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 16 May 2005 11:22:25 +0100
+
+nant (0.84+0.85-rc3-2) experimental; urgency=low
+
+  * Rebuild against mono 1.1 experimental
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 16 May 2005 10:29:31 +0100
+
+nant (0.84+0.85-rc3-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- Dave Beckett <dajobe@debian.org>  Wed, 20 Apr 2005 20:51:57 +0100
+
+nant (0.84+0.85-rc1-2) unstable; urgency=low
+
+  * New Maintainer (Closes: 305458)
+
+ -- Dave Beckett <dajobe@debian.org>  Wed, 20 Apr 2005 16:00:37 +0100
+
+nant (0.84+0.85-rc1-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- John Goerzen <jgoerzen@complete.org>  Mon, 13 Dec 2004 09:08:02 -0600
+
+nant (0.84+0.85-20040825-2) unstable; urgency=low
+
+  * Added dependencies on pkg-config and related packages.
+
+ -- John Goerzen <jgoerzen@complete.org>  Thu, 26 Aug 2004 13:54:55 -0500
+
+nant (0.84+0.85-20040825-1) unstable; urgency=low
+
+  * Initial Release.  Closes: #268207.
+
+ -- John Goerzen <jgoerzen@complete.org>  Thu, 26 Aug 2004 10:27:38 -0500
+
+nant (0.85-2) unstable; urgency=low
+
+  * Depend on mono-gmcs (Closes: #408395)
+  * Added patch 001-nant-task-cs-InitializeElement.dpatch
+    to get around Mono compiler turning a former warning into an error.
+    Again. (Closes: #422838)
+
+ -- Dave Beckett <dajobe@debian.org>  Sun, 24 Jun 2007 12:15:53 -0700
+
+nant (0.85-1) unstable; urgency=low
+
+  * New upstream release
+  * It only took 2 years 11 months to go from 0.84 to 0.85
+  * Build depend indep on cli-common-dev (>= 0.4.4)
+
+ -- Dave Beckett <dajobe@debian.org>  Sun, 15 Oct 2006 00:25:05 -0700
+
+nant (0.84+0.85-rc4-1) unstable; urgency=low
+
+  * New upstream release
+  * Acknowledge NMU (Closes: #372588)
+  * Standards-Version 3.7.2
+  * Update to latest CLI policy package split.  Build-Depends-Indep: on
+    cli-common-dev, libmono-winforms1.0-cil, libmono-winforms2.0-cil and
+    mono-gmcs to get 1.0 and 2.0 packages
+  * Removed patches no longer needed:
+    - 01-AssemblyInfoTask.cs.patch
+    - 02-ScriptTask.cs.patch
+    - 03-XmlResultFormatter.cs.patch
+    - 04-SourceControl.patch
+    - 05-ExceptionTest.cs
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 12 Jun 2006 23:30:36 -0700
+
+nant (0.84+0.85-rc3-10.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Add a build-dep on libmono-winforms1.0-cil to fix FTBFS, thanks Daniel
+    Schepler. (Closes: #370163)
+    [debian/control]
+
+ -- Loic Minier <lool@dooz.org>  Sat, 10 Jun 2006 14:37:38 +0200
+
+nant (0.84+0.85-rc3-10) unstable; urgency=low
+
+  * Remove call to dh_makeclilibs since nant has no public GAC installed
+    libraries (Closes: 361976)
+
+ -- Dave Beckett <dajobe@debian.org>  Tue, 11 Apr 2006 09:09:30 -0700
+
+nant (0.84+0.85-rc3-9) unstable; urgency=low
+
+  * Update debian/watch again to use http://qa.debian.org/watch/sf.php to
+    try to follow sourceforge updates.
+  * Depend on cli-common (>= 0.2.0)
+
+ -- Dave Beckett <dajobe@debian.org>  Sat,  4 Feb 2006 23:03:29 -0800
+
+nant (0.84+0.85-rc3-8) unstable; urgency=low
+
+  * Depend on libmono-dev to get mono.pc at runtime.
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 20 Jun 2005 10:10:51 +0100
+
+nant (0.84+0.85-rc3-7) unstable; urgency=low
+
+  * Removed obsolete Build-Depend: on mono-jit and mono-utils
+  * Fixed debian/watch file
+  * Added patches from CVS HEAD to build with mono 1.1.8 packages:
+    - 01-AssemblyInfoTask.cs.patch
+    - 02-ScriptTask.cs.patch
+    - 03-XmlResultFormatter.cs.patch
+    - 04-SourceControl.patch
+    - 05-ExceptionTest.cs
+
+ -- Dave Beckett <dajobe@debian.org>  Sat, 18 Jun 2005 14:49:10 +0100
+
+nant (0.84+0.85-rc3-6) unstable; urgency=low
+
+  * Upload to unstable now that mono is in unstable
+  * Added debian/watch file
+
+ -- Dave Beckett <dajobe@debian.org>  Thu, 16 Jun 2005 11:52:30 +0100
+
+nant (0.84+0.85-rc3-5) experimental; urgency=low
+
+  * Tiny nant.1 fix
+  * Checked pending bugs that were fixed with new upstream or packaging:
+    - Nant builds reliably inside pbuilder using the mono 1.1.x
+      experimental debs (Closes: #300416).
+    - The mono resgen.exe is now correctly invoked by the
+      <resgen> task (Closes: #283740)
+
+ -- Dave Beckett <dajobe@debian.org>  Fri, 20 May 2005 19:02:36 +0100
+
+nant (0.84+0.85-rc3-4) experimental; urgency=low
+
+  * Make /usr/bin/nant exec cli and NAnt.exe rather than use old cli-wrapper
+  * Wrote a manual page for nant
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 16 May 2005 12:31:10 +0100
+
+nant (0.84+0.85-rc3-3) experimental; urgency=low
+
+  * Remove debian/resgen and update debian/dirs to new mono conventions
+  * Depend on mono 1.1.6
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 16 May 2005 11:22:25 +0100
+
+nant (0.84+0.85-rc3-2) experimental; urgency=low
+
+  * Rebuild against mono 1.1 experimental
+
+ -- Dave Beckett <dajobe@debian.org>  Mon, 16 May 2005 10:29:31 +0100
+
+nant (0.84+0.85-rc3-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- Dave Beckett <dajobe@debian.org>  Wed, 20 Apr 2005 20:51:57 +0100
+
+nant (0.84+0.85-rc1-2) unstable; urgency=low
+
+  * New Maintainer (Closes: 305458)
+
+ -- Dave Beckett <dajobe@debian.org>  Wed, 20 Apr 2005 16:00:37 +0100
+
+nant (0.84+0.85-rc1-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- John Goerzen <jgoerzen@complete.org>  Mon, 13 Dec 2004 09:08:02 -0600
+
+nant (0.84+0.85-20040825-2) unstable; urgency=low
+
+  * Added dependencies on pkg-config and related packages.
+
+ -- John Goerzen <jgoerzen@complete.org>  Thu, 26 Aug 2004 13:54:55 -0500
+
+nant (0.84+0.85-20040825-1) unstable; urgency=low
+
+  * Initial Release.  Closes: #268207.
+
+ -- John Goerzen <jgoerzen@complete.org>  Thu, 26 Aug 2004 10:27:38 -0500
+

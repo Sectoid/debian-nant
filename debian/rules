@@ -1,0 +1,35 @@
+#!/usr/bin/make -f
+export DH_VERBOSE=1
+
+include /usr/share/dpatch/dpatch.make
+include /usr/share/cli-common/cli.make
+
+MAKE_FLAGS = MONO=/usr/bin/cli MCS=/usr/bin/mono-csc
+
+build: build-stamp
+build-stamp: $(DPATCH_STAMPFN)
+	dh build --before dh_auto_build
+	$(MAKE) $(MAKE_FLAGS)
+	dh build --after dh_auto_build
+	touch $@
+
+install: install-stamp
+install-stamp: build
+	dh install --before dh_auto_install
+	$(MAKE) $(MAKE_FLAGS) prefix=/usr DESTDIR=$(CURDIR)/debian/tmp install
+	dh install --after dh_auto_install
+	rmdir --ignore-fail-on-non-empty --parents debian/nant
+	touch $@
+
+clean: realclean unpatch
+realclean: $(DPATCH_STAMPFN)
+	dh clean
+
+binary-arch:
+
+binary-indep: build
+	dh binary-indep
+
+binary: binary-arch binary-indep
+
+.PHONY: build clean binary-indep binary-arch binary install

@@ -1,0 +1,105 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 000-add_DESTDIR_support.dpatch by David Paleino <d.paleino@gmail.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: add support for DESTDIR makefile variable.
+
+@DPATCH@
+diff -urNad nant-0.85.dfsg1~/Makefile nant-0.85.dfsg1/Makefile
+--- nant-0.85.dfsg1~/Makefile	2009-01-05 15:40:11.000000000 +0100
++++ nant-0.85.dfsg1/Makefile	2009-01-05 15:40:13.000000000 +0100
+@@ -1,7 +1,8 @@
+ #NAnt make file for *nix
+-MONO=mono
+-MCS=mcs
++MONO=cli
++MCS=csc
+ RESGEN=resgen
++DESTDIR=
+ 
+ ifndef DIRSEP
+ ifeq ($(OS),Windows_NT)
+@@ -18,13 +19,13 @@
+ endif
+ endif
+ 
+-ifeq ($(MONO),mono)
++#ifeq ($(MONO),mono)
+ FRAMEWORK_DIR = mono
+ DEFINE = MONO
+-else
+-FRAMEWORK_DIR = net
+-DEFINE= NET
+-endif
++#else
++#FRAMEWORK_DIR = net
++#DEFINE= NET
++#endif
+ 
+ 
+ 
+@@ -40,7 +41,7 @@
+ 	rm -fR build bootstrap
+ 
+ install: bootstrap
+-	$(NANT) -f:NAnt.build install -D:install.prefix="$(prefix)"
++	$(NANT) -f:NAnt.build install -D:install.prefix="$(prefix)" -D:install.destdir="$(DESTDIR)"
+ 
+ run-test: bootstrap
+ 	$(NANT) -f:NAnt.build test
+diff -urNad nant-0.85.dfsg1~/NAnt.build nant-0.85.dfsg1/NAnt.build
+--- nant-0.85.dfsg1~/NAnt.build	2009-01-05 15:40:11.000000000 +0100
++++ nant-0.85.dfsg1/NAnt.build	2009-01-05 15:41:00.000000000 +0100
+@@ -774,36 +774,38 @@
+     </target>
+     
+     <target name="install-linux" depends="build" if="${platform::is-unix()}">
+-        <property name="install.realprefix" value="/usr/local" />
++        <property name="install.realprefix" value="/usr" />
+         <if test="${property::exists('install.prefix') and string::get-length(install.prefix) != 0}">
+             <property name="install.realprefix" value="${install.prefix}" />
+         </if>
+         <property name="install.bindir" value="${path::combine(install.realprefix, 'bin')}"/>
+         <property name="install.share" value="${path::combine(install.realprefix, 'share')}"/>
+-        <property name="install.copylocation" value="${path::combine (install.share, 'NAnt')}"/>
++        <property name="install.libdir" value="${path::combine(install.realprefix, 'lib')}"/>
+         <property name="prefix" value="${pkg-config::get-variable('mono', 'prefix')}"/>
+-        <echo message="Installing NAnt to '${install.copylocation}' ..." />
+         
++        <echo message="Using DESTDIR '${install.destdir}'..." />
++        <property name="tmppath" value="${path::combine(install.libdir, 'NAnt')}" />
++        <property name="install.copylocation" value="${path::combine(install.destdir, path::combine('usr/', path::combine('lib', 'NAnt')))}" />
++        <property name="install.realbindir" value="${path::combine(install.destdir, path::combine('usr/', 'bin'))}" />
++        <echo message="Installing NAnt to '${install.copylocation}' ..." />
+         <copy todir="${install.copylocation}" overwrite="true">
+-            <fileset basedir="${build.dir}">
+-                <include name="bin/**/*" />
+-                <include name="doc/**/*" />
+-
+-                <exclude name="bin/nant.tests.config" />
+-                <exclude name="bin/*.Tests.*" />
+-            </fileset>
++            <fileset basedir="${path::combine(build.dir, 'bin')}">
++                <include name="*" />
++                <exclude name="nant.tests.config" />
++                <exclude name="*.Tests.*" />
++            </fileset>
+         </copy>
+-        <echo message="Installing NAnt wrapper script to '${install.bindir}' ..." />
++        <echo message="Installing NAnt wrapper script to '${install.realbindir}' ..." />
+         <!-- store filename of wrapper script in property -->
+-        <property name="wrapper" value="${path::combine(install.bindir, 'nant')}" />
++        <property name="wrapper" value="${path::combine(install.realbindir, 'nant')}" />
+         <!-- 
+             create wrapper file using separate echo tasks for each line to ensure
+             the line endings of the generated file match the platform on which 
+             the wrapper is created
+         -->
+         <echo file="${wrapper}" append="false">#!/bin/sh</echo>
+-        <echo file="${wrapper}" append="true">exec ${path::combine(prefix, 'bin')}/mono ${path::combine(install.copylocation, 'bin')}/NAnt.exe "$@"</echo>
+-        <exec program="chmod" commandline="a+x ${path::combine(install.bindir, 'nant')}"/>
++        <echo file="${wrapper}" append="true">exec ${path::combine(prefix, 'bin')}/cli ${install.libdir}/NAnt/NAnt.exe "$@"</echo>
++        <exec program="chmod" commandline="a+x ${path::combine(install.realbindir, 'nant')}"/>
+     </target>
+     
+     <target name="rpm" depends="init, build">

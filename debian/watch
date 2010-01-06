@@ -1,0 +1,3 @@
+version=3
+opts=dversionmangle=s/\.dfsg\d+$// \
+	http://sf.net/nant/nant-([.0-9]+?)-src.tar.gz

@@ -1,0 +1,33 @@
+Source: nant
+Section: devel
+Priority: optional
+Maintainer: Debian CLI Applications Team <pkg-cli-apps-team@lists.alioth.debian.org>
+Uploaders: Jelmer Vernooij <jelmer@samba.org>,
+ David Paleino <dapal@debian.org>
+Build-Depends: debhelper (>= 7), dpatch
+Build-Depends-Indep: mono-devel (>= 2.4.3),
+ pkg-config,
+ cli-common-dev (>= 0.5.7),
+ libnunit-cil-dev,
+ liblog4net-cil-dev
+Standards-Version: 3.8.3
+Homepage: http://nant.sourceforge.net/
+Vcs-Svn: svn://svn.debian.org/pkg-cli-apps/packages/nant/trunk
+Vcs-Browser: http://svn.debian.org/wsvn/pkg-cli-apps/packages/nant/trunk/
+DM-Upload-Allowed: yes
+
+Package: nant
+Architecture: all
+Depends: ${cli:Depends}, ${misc:Depends},
+ pkg-config,
+ mono-devel (>= 2.0.1)
+Description: build tool similar to Ant
+ NAnt is different than Make.  Instead of a model where it is extended with
+ shell-based commands, NAnt is extended using task classes.  Instead of
+ writing shell commands, the configuration files are XML-based, calling
+ out a target tree where various tasks get executed.  Each task is run
+ by an object that implements a particular Task interface.
+ .
+ NAnt supports different target frameworks:
+  - Microsoft .NET Framework version 1.0, 1.1 and 2.0
+  - Mono 1.0 and 2.0

@@ -1,0 +1,83 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\"
+.\"
+.TH nant 1 "2005-05-16"
+.SH "NAME"
+NAnt \- .NET build tool similar to Ant
+.SH "SYNOPOSIS"
+.B nant
+.RB [OPTIONS]
+..IR "<target>"
+.IR "<target> ..."
+.SH "DESCRIPTION"
+.B NAnt
+is a .Net build tool similar to Ant.  The build environment
+is configured using an XML file and extended using .Net classes
+rather than executing separate shell-based commands.  Each task is
+run by an object that implements a particular Task interface.
+.SH "COMMON OPTIONS"
+The following are the most common options
+.TP
+.B \-t[argetframework]:<text>
+Specifies the framework to target
+.TP
+.B \-defaultframework:<text>
+Specifies the framework to target (Short format: /k)
+.TP
+.B \-buildfile:<text>
+Use given buildfile (Short format: /f)
+.TP
+.B \-D:<name>=<value>
+Use value for given property
+.IP
+A file ending in .build will be used if no buildfile is specified.
+.TP
+.B @<file>
+Insert command\-line settings from a text file.
+.SH "OTHER OPTIONS"
+.TP
+.B \-debug[+|\-]
+Displays debug information during build process
+.TP
+.B \-e[macs][+|\-]
+Produce logging information without adornments
+.TP
+.B \-ext[ension]:<text>
+Load NAnt extensions from the specified assembly
+.TP
+.B \-find[+|\-]
+Search parent directories for build file
+.TP
+.B \-h[elp][+|\-]
+Prints a help message summarising the options.
+.TP
+.B \-indent:<number>
+Indentation level of build output
+.TP
+.B \-l[ogfile]:<filename>
+Use value as name of log output file
+.TP
+.B \-listener:<text>
+Add an instance of class as a project listener
+.TP
+.B \-logger:<text>
+Use given type as logger
+.TP
+.B \-nologo[+|\-]
+Suppresses display of the logo banner
+.TP
+.B \-projecthelp[+|\-]
+Prints project help information
+.TP
+.B \-q[uiet][+|\-]
+Displays only error or warning messages during build process
+.TP
+.B \-v[erbose][+|\-]
+Displays more information during build process
+.SH "SEE ALSO"
+NAnt Project web site
+.UR http://nant.sourceforge.net/
+http://nant.sourceforge.net/
+.UE
+.LP
+Man page by Dave Beckett, made available under the same terms as NAnt

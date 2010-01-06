@@ -1,0 +1,7 @@
+000-fix_build_system.dpatch
+001-nant-task-cs-InitializeElement.dpatch
+002-nant-load-partial-name.dpatch
+003-nant-use-system-dlls.dpatch
+004-nant-nunit_2.4.dpatch
+005-nant-ExternalProgramBase-race.dpatch
+006-nant-dont-build-ndoc-support.dpatch
