@@ -19,6 +19,7 @@
 // Gerry Shaw (gerry_shaw@yahoo.com)
 // Ian MacLean (ian at maclean.ms)
 // Giuseppe Greco (giuseppe.greco@agamura.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.CodeDom;
@@ -27,29 +28,37 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Xml;
+
 using NAnt.Core;
 using NAnt.Core.Attributes;
 using NAnt.Core.Types;
 using NAnt.Core.Util;
+
 using NAnt.DotNet.Types;
 
 namespace NAnt.DotNet.Tasks {
     /// <summary>
-    /// Executes the code contained within the task. This code can include custom extension function definitions. 
-    /// Once the script task has executed those custom functions will be available for use in the buildfile.
+    /// Executes the code contained within the task.
     /// </summary>
     /// <remarks>
+    ///     <h5>Code</h5>
     ///     <para>
     ///     The <see cref="ScriptTask" /> must contain a single <c>code</c> 
     ///     element, which in turn contains the script code.
     ///     </para>
     ///     <para>
-    ///     A static entry point named <c>ScriptMain</c> is required if no custom functions have been defined. It must 
-    ///     have a single <see cref="Project"/> parameter.
+    ///     This code can include extensions such as functions, or tasks. Once
+    ///     the script task has executed those extensions will be available for
+    ///     use in the buildfile.
     ///     </para>
     ///     <para>
-    ///     The following namespaces are loaded by default:
+    ///     If no extensions have been defined, a static entry point named
+    ///     <c>ScriptMain</c> - which must have a single <see cref="Project"/>
+    ///     argument - is required.
+    ///     </para>
+    ///     <h5>Namespaces</h5>
+    ///     <para>
+    ///     The following namespaces are imported by default:
     ///     </para>
     ///     <list type="bullet">
     ///         <item>
@@ -59,21 +68,27 @@ namespace NAnt.DotNet.Tasks {
     ///             <description>System.Collections</description>
     ///         </item>
     ///         <item>
-    ///             <description>System.Collections.Specialized</description>
-    ///         </item>
-    ///         <item>
     ///             <description>System.IO</description>
     ///         </item>
     ///         <item>
     ///             <description>System.Text</description>
     ///         </item>
     ///         <item>
-    ///             <description>System.Text.RegularExpressions</description>
-    ///         </item>
-    ///         <item>
     ///             <description>NAnt.Core</description>
     ///         </item>
+    ///         <item>
+    ///             <description>NAnt.Core.Attributes</description>
+    ///         </item>
     ///     </list>
+    ///     <h5>Assembly References</h5>
+    ///     <para>
+    ///     The assembly references that are specified will be used to compile
+    ///     the script, and will be loaded into the NAnt appdomain.
+    ///     </para>
+    ///     <para>
+    ///     By default, only the <c>NAnt.Core</c> and <c>mscorlib</c> assemblies
+    ///     are referenced.
+    ///     </para>
     /// </remarks>
     /// <example>
     ///   <para>Run C# code that writes a message to the build log.</para>
@@ -236,10 +251,8 @@ namespace NAnt.DotNet.Tasks {
         private static readonly string[] _defaultNamespaces = {
                                                                   "System",
                                                                   "System.Collections",
-                                                                  "System.Collections.Specialized",
                                                                   "System.IO",
                                                                   "System.Text",
-                                                                  "System.Text.RegularExpressions",
                                                                   "NAnt.Core",
                                                                   "NAnt.Core.Attributes"};
 
@@ -250,7 +263,7 @@ namespace NAnt.DotNet.Tasks {
         /// <summary>
         /// The language of the script block. Possible values are "VB", "vb", "VISUALBASIC", "C#", "c#", "CSHARP".
         /// "JS", "js", "JSCRIPT" "VJS", "vjs", "JSHARP" or a fully-qualified name for a class implementing 
-        /// <see cref="System.CodeDom.Compiler.CodeDomProvider" />.
+        /// <see cref="T:System.CodeDom.Compiler.CodeDomProvider" />.
         /// </summary>
         [TaskAttribute("language", Required=true)]
         public string Language {
@@ -310,9 +323,9 @@ namespace NAnt.DotNet.Tasks {
         #region Override implementation of Task
 
         /// <summary>
-        /// Initializes the task using the specified xml node.
+        /// Initializes the task.
         /// </summary>
-        protected override void InitializeTask(XmlNode taskNode) {
+        protected override void Initialize() {
             _rootClassName = "nant" + Guid.NewGuid().ToString("N", 
                 CultureInfo.InvariantCulture);
         }
@@ -336,33 +349,21 @@ namespace NAnt.DotNet.Tasks {
             options.GenerateInMemory = true;
             options.MainClass = MainClass;
 
-            // add all available assemblies.
-            foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies()) {
-                try {
-                    if (!StringUtils.IsNullOrEmpty(asm.Location)) {
-                        options.ReferencedAssemblies.Add(asm.Location);
-                    }
-                } catch (NotSupportedException) {
-                    // Ignore - this error is sometimes thrown by asm.Location 
-                    // for certain dynamic assemblies
-                }
-            }
+            // implicitly reference the NAnt.Core assembly
+            options.ReferencedAssemblies.Add (typeof (Project).Assembly.Location);
+
+            // Log the assembly being added to the CompilerParameters
+            Log(Level.Verbose, "Adding assembly {0}", typeof (Project).Assembly.GetName().Name);
 
             // add (and load) assemblies specified by user
             foreach (string assemblyFile in References.FileNames) {
                 try {
-                    // fetch name of assembly
-                    AssemblyName aname = AssemblyName.GetAssemblyName(assemblyFile);
-
-                    // don't bother adding assemblies that are already loaded
-                    // in the AppDomain as they have already been added
-                    if (IsAssemblyLoaded (aname)) {
-                        continue;
-                    }
-
                     // load the assembly into current AppDomain to ensure it is
-                    // are available when executing the emitted assembly
+                    // available when executing the emitted assembly
                     Assembly asm = Assembly.LoadFrom(assemblyFile);
+
+                    // Log the assembly being added to the CompilerParameters
+                    Log(Level.Verbose, "Adding assembly {0}", asm.GetName().Name);
 
                     // add the location of the loaded assembly
                     if (!StringUtils.IsNullOrEmpty(asm.Location)) {
@@ -538,15 +539,6 @@ namespace NAnt.DotNet.Tasks {
                     ResourceUtils.GetString("NA2038"), providerType.FullName));
             }
             return (CodeDomProvider) provider;
-        }
-
-        private static bool IsAssemblyLoaded (AssemblyName aname) {
-            foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies()) {
-                if (asm.FullName == aname.FullName) {
-                    return true;
-                }
-            }
-            return false;
         }
 
         #endregion Private Static Methods

@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.IO;
@@ -162,8 +162,8 @@ namespace NAnt.Core.Functions {
         ///   </code>
         /// </example>
         [Function("get-assembly-name")]
-        public static AssemblyName GetAssemblyName(string assemblyFile) {
-            return AssemblyName.GetAssemblyName(assemblyFile); 
+        public AssemblyName GetAssemblyName(string assemblyFile) {
+            return AssemblyName.GetAssemblyName(Project.GetFullPath(assemblyFile)); 
         }
         
         #endregion Public Static Methods

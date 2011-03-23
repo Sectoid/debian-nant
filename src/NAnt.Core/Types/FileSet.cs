@@ -22,6 +22,7 @@ using System;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Xml;
 
 using NAnt.Core.Attributes;
@@ -88,6 +89,12 @@ namespace NAnt.Core.Types {
     /// There is one "shorthand" - if a pattern ends with <c>/</c> or <c>\</c>, then 
     /// <c>**</c> is appended. For example, <c>mypackage/test/</c> is interpreted as 
     /// if it were <c>mypackage/test/**</c>.
+    /// </para>
+    /// <h3>Case-Sensitivity</h3>
+    /// <para>
+    /// By default, pattern matching is case-sensitive on Unix and case-insensitive
+    /// on other platforms. The <see cref="CaseSensitive" /> parameter can be used
+    /// to override this.
     /// </para>
     /// <h3>Default Excludes</h3>
     /// <para>
@@ -163,6 +170,11 @@ namespace NAnt.Core.Types {
     ///     <item>
     ///         <description>
     ///         **/vssver.scc
+    ///         </description>
+    ///     </item>
+    ///     <item>
+    ///         <description>
+    ///         **/vssver2.scc
     ///         </description>
     ///     </item>
     ///     <item>
@@ -268,6 +280,7 @@ namespace NAnt.Core.Types {
     ///     </item>
     /// </list>
     /// </example>
+    /// <seealso cref="PatternSet" />
     [Serializable()]
     [ElementName("fileset")]
     public class FileSet : DataTypeBase {
@@ -308,6 +321,17 @@ namespace NAnt.Core.Types {
         #endregion Public Instance Constructors
 
         #region Public Instance Properties
+
+        /// <summary>
+        /// Indicates whether include and exclude patterns must be treated in a
+        /// case-sensitive way. The default is <see langword="true" /> on Unix;
+        /// otherwise, <see langword="false" />.
+        /// </summary>
+        [TaskAttribute("casesensitive")]
+        public bool CaseSensitive {
+            get { return _scanner.CaseSensitive; }
+            set { _scanner.CaseSensitive = value; }
+        }
 
         /// <summary>
         /// When set to <see langword="true" />, causes the fileset element to 
@@ -495,7 +519,7 @@ namespace NAnt.Core.Types {
         }
 
         /// <summary>
-        /// The files from which a list of patterns or files to include should 
+        /// The files from which a list of patterns or files to include should
         /// be obtained.
         /// </summary>
         [BuildElementArray("includesfile")]
@@ -525,7 +549,7 @@ namespace NAnt.Core.Types {
         }
 
         /// <summary>
-        /// The files from which a list of patterns or files to exclude should 
+        /// The files from which a list of patterns or files to exclude should
         /// be obtained.
         /// </summary>
         [BuildElementArray("excludesfile")]
@@ -590,7 +614,8 @@ namespace NAnt.Core.Types {
 
         #region Override implementation of Element
 
-        protected override void InitializeElement(XmlNode elementNode) {
+        protected override void Initialize() {
+            base.Initialize();
             if (DefaultExcludes) {
                 // add default exclude patterns
                 Excludes.Add("**/*~");
@@ -607,9 +632,9 @@ namespace NAnt.Core.Types {
                 Excludes.Add("**/SCCS");
                 Excludes.Add("**/SCCS/**");
                 Excludes.Add("**/vssver.scc");
+                Excludes.Add("**/vssver2.scc");
                 Excludes.Add("**/_vti_cnf/**");
             }
-            base.InitializeElement(elementNode);
         }
 
         #endregion Override implementation of Element
@@ -667,6 +692,15 @@ namespace NAnt.Core.Types {
 
         #region Public Instance Methods
 
+        /// <summary>
+        /// Adds a nested set of patterns, or references a standalone patternset.
+        /// </summary>
+        [BuildElement("patternset")]
+        public void AddPatternSet (PatternSet patternSet) {
+            Includes.AddRange(patternSet.GetIncludePatterns());
+            Excludes.AddRange(patternSet.GetExcludePatterns());
+        }
+
         public virtual void Scan() {
             try {
                 _scanner.BaseDirectory = BaseDirectory;
@@ -723,6 +757,26 @@ namespace NAnt.Core.Types {
         }
 
         #endregion Protected Instance Methods
+
+        #region Internal Instance Methods
+
+        internal string Find (string fileName) {
+            CompareOptions compareOptions = CompareOptions.None;
+            CompareInfo compare = CultureInfo.InvariantCulture.CompareInfo;
+
+            if (!CaseSensitive)
+                compareOptions |= CompareOptions.IgnoreCase;
+
+            foreach (string file in FileNames) {
+                if (compare.Compare (Path.GetFileName (file), fileName, compareOptions) == 0) {
+                    return file;
+                }
+            }
+
+            return null;
+        }
+
+        #endregion Internal Instance Methods
 
         #region Public Static Methods
 
@@ -919,10 +973,18 @@ namespace NAnt.Core.Types {
                     }
 
                     try {
-                        using (Stream file = File.OpenRead(PatternFile.FullName)) {
-                            StreamReader rd = new StreamReader(file);
-                            while (rd.Peek() > -1) {
-                                patterns.Add(rd.ReadLine());
+                        using (StreamReader sr = new StreamReader(PatternFile.FullName, Encoding.Default, true)) {
+                            string line = sr.ReadLine ();
+                            while (line != null) {
+                                // remove leading and trailing whitespace
+                                line = line.Trim ();
+                                // only consider non-empty lines that are not comments
+                                if (line.Length != 0 && line [0] != '#') {
+                                    // add line as pattern
+                                    patterns.Add(line);
+                                }
+                                // read next line
+                                line = sr.ReadLine ();
                             }
                         }
                         return patterns;
@@ -1010,7 +1072,7 @@ namespace NAnt.Core.Types {
             #region Override implementation of ExcludesFile
 
             /// <summary>
-            /// If <see langword="true" /> then the patterns will be included; 
+            /// If <see langword="true" /> then the patterns will be included;
             /// otherwise, skipped. The default is <see langword="true" />.
             /// </summary>
             [TaskAttribute("if")]

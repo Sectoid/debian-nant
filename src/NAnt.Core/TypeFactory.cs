@@ -27,6 +27,7 @@ using System.Security.Permissions;
 using System.Xml;
 
 using NAnt.Core.Attributes;
+using NAnt.Core.Extensibility;
 using NAnt.Core.Filters;
 using NAnt.Core.Tasks;
 using NAnt.Core.Util;
@@ -44,7 +45,7 @@ namespace NAnt.Core {
         private static DataTypeBaseBuilderCollection _dataTypeBuilders = new DataTypeBaseBuilderCollection();
         private static FilterBuilderCollection _filterBuilders = new FilterBuilderCollection();
         private static Hashtable _methodInfoCollection = new Hashtable();
-        private static ArrayList _projects = new ArrayList();
+        private static PluginScanner _pluginScanner = new PluginScanner();
 
         #endregion Private Static Fields
 
@@ -80,6 +81,10 @@ namespace NAnt.Core {
             get { return _filterBuilders; }
         }
 
+        internal static PluginScanner PluginScanner {
+            get { return _pluginScanner; }
+        }
+
         #endregion Internal Static Properties
 
         #region Public Static Methods
@@ -106,10 +111,22 @@ namespace NAnt.Core {
         /// </returns>
         [ReflectionPermission(SecurityAction.Demand, Flags=ReflectionPermissionFlag.NoFlags)]
         public static bool ScanAssembly(Assembly assembly, Task task) {
-            task.Log(Level.Info, "Scanning assembly \"{0}\" for extensions.", 
+            task.Log(Level.Verbose, "Scanning assembly \"{0}\" for extensions.", 
                 assembly.GetName().Name);
+                
+            foreach (Type type in assembly.GetExportedTypes()) {
+                foreach (MethodInfo methodInfo in type.GetMethods()) {
+                    if (methodInfo.IsStatic) {
+                        task.Log(Level.Verbose, "Found method {0}.",
+                            methodInfo.Name);
+                    }
+                }
+            }
 
-            bool extensionAssembly = false;
+            bool isExtensionAssembly = false;
+
+            ExtensionAssembly extensionAssembly = new ExtensionAssembly (
+                assembly);
 
             foreach (Type type in assembly.GetTypes()) {
                 //
@@ -121,10 +138,12 @@ namespace NAnt.Core {
                 // identified as a task
                 //
 
-                bool extensionFound = ScanTypeForTasks(type, task);
+                bool extensionFound = ScanTypeForTasks(extensionAssembly,
+                    type, task);
 
                 if (!extensionFound) {
-                    extensionFound = ScanTypeForDataTypes(type, task);
+                    extensionFound = ScanTypeForDataTypes(extensionAssembly,
+                        type, task);
                 }
 
                 if (!extensionFound) {
@@ -132,18 +151,24 @@ namespace NAnt.Core {
                 }
 
                 if (!extensionFound) {
-                    extensionFound = ScanTypeForFilters(type, task);
+                    extensionFound = ScanTypeForFilters(extensionAssembly,
+                        type, task);
+                }
+
+                if (!extensionFound) {
+                    extensionFound = _pluginScanner.ScanTypeForPlugins(
+                        extensionAssembly, type, task);
                 }
 
                 // if extension is found in type, then mark assembly as
                 // extension assembly
-                extensionAssembly = extensionAssembly || extensionFound;
+                isExtensionAssembly = isExtensionAssembly || extensionFound;
             }
 
             // if no extension could be found at all, then we might be dealing
             // with an extension assembly that was built using an older version
             // of NAnt(.Core)
-            if (!extensionAssembly) {
+            if (!isExtensionAssembly) {
                 AssemblyName coreAssemblyName = Assembly.GetExecutingAssembly().
                     GetName(false);
 
@@ -162,7 +187,7 @@ namespace NAnt.Core {
                 }
             }
 
-            return extensionAssembly;                
+            return isExtensionAssembly;
         }
 
         /// <summary>
@@ -219,82 +244,108 @@ namespace NAnt.Core {
         /// <param name="project">The project to work from.</param>
         /// <param name="scan">Specified whether to scan the <see cref="Project.BaseDirectory" /> for extension assemblies.</param>
         internal static void AddProject(Project project, bool scan) {
-            // create weakref to project. It is possible that project may go 
-            // away, we don't want to hold it
-            _projects.Add(new WeakReference(project));
+            if (!scan || StringUtils.IsNullOrEmpty(project.BaseDirectory))
+                return;
 
-            foreach (TaskBuilder tb in TaskBuilders) {
-                UpdateProjectWithBuilder(project, tb);
+            LoadTasksTask loadTasks = new LoadTasksTask();
+            loadTasks.Project = project;
+            loadTasks.NamespaceManager = project.NamespaceManager;
+            loadTasks.Parent = project;
+            loadTasks.FailOnError = false;
+            loadTasks.Threshold = (project.Threshold == Level.Debug) ? 
+                Level.Debug : Level.Warning;
+
+            string tasksDir = Path.Combine(project.BaseDirectory, "extensions");
+            string commonTasksDir = Path.Combine(tasksDir, "common");
+
+            // scan framework-neutral and version-neutral assemblies
+            ScanDir(Path.Combine(commonTasksDir, "neutral"), loadTasks,
+                false);
+
+            // skip further processing if runtime framework has not yet 
+            // been set
+            if (project.RuntimeFramework == null) {
+                return;
             }
 
-            if (scan && !StringUtils.IsNullOrEmpty(project.BaseDirectory)) {
-                LoadTasksTask loadTasks = new LoadTasksTask();
-                loadTasks.Project = project;
-                loadTasks.NamespaceManager = project.NamespaceManager;
-                loadTasks.Parent = project;
-                loadTasks.FailOnError = false;
-                loadTasks.Threshold = (project.Threshold == Level.Debug) ? 
-                    Level.Debug : Level.Warning;
+            // scan framework-neutral but version-specific assemblies
+            ScanDir(Path.Combine(commonTasksDir, project.RuntimeFramework.
+                ClrVersion.ToString (2)), loadTasks, false);
 
-                // scan framework-neutral assemblies
-                ScanDir(Path.Combine(project.BaseDirectory, "tasks"), loadTasks,
-                    false);
+            string frameworkTasksDir = Path.Combine(tasksDir, 
+                project.RuntimeFramework.Family);
 
-                // skip further processing if runtime framework has not yet 
-                // been set
-                if (project.RuntimeFramework == null) {
-                    return;
-                }
+            // scan framework-specific but version-neutral assemblies
+            ScanDir(Path.Combine(frameworkTasksDir, "neutral"), loadTasks,
+                false);
 
-                // scan framework-specific assemblies
-                ScanDir(Path.Combine(Path.Combine(project.BaseDirectory, "tasks"), 
-                    project.RuntimeFramework.Family), loadTasks, false);
-
-                // scan framework version specific assemblies
-                ScanDir(Path.Combine(Path.Combine(Path.Combine(project.BaseDirectory, "tasks"), 
-                    project.RuntimeFramework.Family), project.RuntimeFramework.Version.ToString()), 
-                    loadTasks, false);
-            }
+            // scan framework-specific and version-specific assemblies
+            ScanDir(Path.Combine(frameworkTasksDir, project.RuntimeFramework
+                .Version.ToString()), loadTasks, false);
         }
 
         /// <summary>
-        /// Looks up a function by name.
+        /// Looks up a function by name and argument count.
         /// </summary>
-        /// <param name="methodName">The name of the function to lookup, including namespace prefix.</param>
+        /// <param name="functionName">The name of the function to lookup, including namespace prefix.</param>
+        /// <param name="args">The argument of the function to lookup.</param>
         /// <param name="project">The <see cref="Project" /> in which the function is invoked.</param>
         /// <returns>
         /// A <see cref="MethodInfo" /> representing the function, or 
-        /// <see langword="null" /> if a function with the given name does not
-        /// exist.
+        /// <see langword="null" /> if a function with the given name and
+        /// arguments does not exist.
         /// </returns>
-        public static MethodInfo LookupFunction(string methodName, Project project) {
-            MethodInfo function = (MethodInfo) _methodInfoCollection[methodName];
-            if (function != null) {
-                // check whether the function is deprecated
-                ObsoleteAttribute obsoleteAttribute = (ObsoleteAttribute) 
-                    Attribute.GetCustomAttribute(function, 
-                    typeof(ObsoleteAttribute), true);
+        internal static MethodInfo LookupFunction(string functionName, FunctionArgument[] args, Project project) {
+            object function = _methodInfoCollection[functionName];
+            if (function == null)
+                throw new BuildException(string.Format(CultureInfo.InvariantCulture,
+                    ResourceUtils.GetString("NA1052"), functionName));
 
-                // if function itself is not deprecated, check if its declaring
-                // type is deprecated
-                if (obsoleteAttribute == null) {
-                    obsoleteAttribute = (ObsoleteAttribute) 
-                        Attribute.GetCustomAttribute(function.DeclaringType, 
-                        typeof(ObsoleteAttribute), true);
+            MethodInfo mi = function as MethodInfo;
+            if (mi != null) {
+                if (mi.GetParameters ().Length == args.Length) {
+                    CheckDeprecation(functionName, mi, project);
+                    return mi;
                 }
-
-                if (obsoleteAttribute != null) {
-                    string obsoleteMessage = string.Format(CultureInfo.InvariantCulture,
-                        ResourceUtils.GetString("NA1087"), methodName, 
-                        obsoleteAttribute.Message);
-                    if (obsoleteAttribute.IsError) {
-                        throw new BuildException(obsoleteMessage, Location.UnknownLocation);
-                    } else {
-                        project.Log(Level.Warning, "{0}", obsoleteMessage);
+            } else {
+                ArrayList matches = (ArrayList) function;
+                for (int i = 0; i < matches.Count; i++) {
+                    mi = (MethodInfo) matches [i];
+                    if (mi.GetParameters ().Length == args.Length) {
+                        CheckDeprecation(functionName, mi, project);
+                        return mi;
                     }
                 }
             }
-            return function;
+
+            throw new BuildException(string.Format(CultureInfo.InvariantCulture,
+                ResourceUtils.GetString("NA1044"), functionName, args.Length));
+        }
+
+        private static void CheckDeprecation(string functionName, MethodInfo function, Project project) {
+            // check whether the function is deprecated
+            ObsoleteAttribute obsoleteAttribute = (ObsoleteAttribute) 
+                Attribute.GetCustomAttribute(function, 
+                typeof(ObsoleteAttribute), true);
+
+            // if function itself is not deprecated, check if its declaring
+            // type is deprecated
+            if (obsoleteAttribute == null) {
+                obsoleteAttribute = (ObsoleteAttribute) 
+                    Attribute.GetCustomAttribute(function.DeclaringType, 
+                    typeof(ObsoleteAttribute), true);
+            }
+
+            if (obsoleteAttribute != null) {
+                string obsoleteMessage = string.Format(CultureInfo.InvariantCulture,
+                    ResourceUtils.GetString("NA1087"), functionName, 
+                    obsoleteAttribute.Message);
+                if (obsoleteAttribute.IsError) {
+                    throw new BuildException(obsoleteMessage, Location.UnknownLocation);
+                } else {
+                    project.Log(Level.Warning, "{0}", obsoleteMessage);
+                }
+            }
         }
 
         /// <summary> 
@@ -432,33 +483,19 @@ namespace NAnt.Core {
 
         #endregion Public Static Methods
 
-        #region Internal Static Methods
-
-        internal static void UpdateProjectWithBuilder(Project p, TaskBuilder tb) {
-            // add a true property for each task (use in build to test for task existence).
-            // add a property for each task with the assembly location.
-            p.Properties.AddReadOnly("nant.tasks." + tb.TaskName, Boolean.TrueString);
-            try {
-                p.Properties.AddReadOnly("nant.tasks." + tb.TaskName + ".location", tb.Assembly.Location);
-            } catch (NotSupportedException) {
-                // Assembly.Location is not supported in dynamic assemblies
-            }
-        }
-
-        #endregion Internal Static Methods
-
         #region Private Static Methods
 
         /// <summary>
         /// Scans a given <see cref="Type" /> for tasks.
         /// </summary>
+        /// <param name="extensionAssembly">The <see cref="ExtensionAssembly" /> containing the <see cref="Type" /> to scan.</param>
         /// <param name="type">The <see cref="Type" /> to scan.</param>
         /// <param name="task">The <see cref="Task" /> which will be used to output messages to the build log.</param>
         /// <returns>
         /// <see langword="true" /> if <paramref name="type" /> represents a
         /// <see cref="Task" />; otherwise, <see langword="false" />.
         /// </returns>
-        private static bool ScanTypeForTasks(Type type, Task task) {
+        private static bool ScanTypeForTasks(ExtensionAssembly extensionAssembly, Type type, Task task) {
             try {
                 TaskNameAttribute taskNameAttribute = (TaskNameAttribute) 
                     Attribute.GetCustomAttribute(type, typeof(TaskNameAttribute));
@@ -468,26 +505,13 @@ namespace NAnt.Core {
                         ResourceUtils.GetString("String_CreatingTaskBuilder"), 
                         type.Name));
 
-                    TaskBuilder tb = new TaskBuilder(type.Assembly, type.FullName);
+                    TaskBuilder tb = new TaskBuilder(extensionAssembly, type.FullName);
                     if (TaskBuilders[tb.TaskName] == null) {
                         task.Log(Level.Debug, string.Format(CultureInfo.InvariantCulture, 
                             ResourceUtils.GetString("String_AddingTask"), tb.TaskName, 
                             GetAssemblyLocation(tb.Assembly), tb.ClassName));
 
                         TaskBuilders.Add(tb);
-                        foreach(WeakReference wr in _projects) {
-                            if (!wr.IsAlive) {
-                                task.Log(Level.Debug, "WeakReference for project is dead.");
-                                continue;
-                            }
-                            Project p = wr.Target as Project;
-                            if (p == null) {
-                                task.Log(Level.Debug, "WeakReference is not a"
-                                    + " project! This should not be possible.");
-                                continue;
-                            }
-                            UpdateProjectWithBuilder(p, tb);
-                        }
                     }
 
                     // specified type represents a task
@@ -506,13 +530,14 @@ namespace NAnt.Core {
         /// <summary>
         /// Scans a given <see cref="Type" /> for data type.
         /// </summary>
+        /// <param name="extensionAssembly">The <see cref="ExtensionAssembly" /> containing the <see cref="Type" /> to scan.</param>
         /// <param name="type">The <see cref="Type" /> to scan.</param>
         /// <param name="task">The <see cref="Task" /> which will be used to output messages to the build log.</param>
         /// <returns>
         /// <see langword="true" /> if <paramref name="type" /> represents a
         /// data type; otherwise, <see langword="false" />.
         /// </returns>
-        private static bool ScanTypeForDataTypes(Type type, Task task) {
+        private static bool ScanTypeForDataTypes(ExtensionAssembly extensionAssembly, Type type, Task task) {
             try {
                 ElementNameAttribute elementNameAttribute = (ElementNameAttribute) 
                     Attribute.GetCustomAttribute(type, typeof(ElementNameAttribute));
@@ -520,7 +545,7 @@ namespace NAnt.Core {
                 if (type.IsSubclassOf(typeof(DataTypeBase)) && !type.IsAbstract && elementNameAttribute != null) {
                     logger.Info(string.Format(CultureInfo.InvariantCulture, 
                         ResourceUtils.GetString("String_CreatingDataTypeBaseBuilder"), type.Name));
-                    DataTypeBaseBuilder dtb = new DataTypeBaseBuilder(type.Assembly, type.FullName);
+                    DataTypeBaseBuilder dtb = new DataTypeBaseBuilder(extensionAssembly, type.FullName);
                     if (DataTypeBuilders[dtb.DataTypeName] == null) {
                         logger.Debug(string.Format(CultureInfo.InvariantCulture, 
                             ResourceUtils.GetString("String_AddingDataType"), dtb.DataTypeName, 
@@ -579,31 +604,13 @@ namespace NAnt.Core {
                     }
 
                     //
-                    // add instance methods
+                    // add public static/instance methods
                     // 
-                    foreach (MethodInfo info in type.GetMethods(BindingFlags.Public | BindingFlags.Instance)) {
+                    foreach (MethodInfo info in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)) {
                         FunctionAttribute functionAttribute = (FunctionAttribute)
                             Attribute.GetCustomAttribute(info, typeof(FunctionAttribute));
-                        if (functionAttribute != null) {
-                            // look at scoping each class by namespace prefix
-                            if (! _methodInfoCollection.ContainsKey(prefix + functionAttribute.Name)) {
-                                _methodInfoCollection.Add(prefix + functionAttribute.Name, info);
-                            }
-                        }
-                    }
-
-                    //
-                    // add static methods
-                    // 
-                    foreach (MethodInfo info in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
-                        FunctionAttribute functionAttribute = (FunctionAttribute)
-                            Attribute.GetCustomAttribute(info, typeof(FunctionAttribute));
-                        if (functionAttribute != null) {
-                            // look at scoping each class by prefix
-                            if (!_methodInfoCollection.ContainsKey(prefix + functionAttribute.Name)) {
-                                _methodInfoCollection.Add(prefix + functionAttribute.Name, info);
-                            }
-                        }
+                        if (functionAttribute != null)
+                            RegisterFunction(prefix + functionAttribute.Name, info);
                     }
 
                     // specified type represents a valid functionset
@@ -619,16 +626,35 @@ namespace NAnt.Core {
             }
         }
 
+        private static void RegisterFunction(string key, MethodInfo info) {
+            object functions = _methodInfoCollection [key];
+            if (functions == null) {
+                _methodInfoCollection.Add(key, info);
+            } else {
+                MethodInfo mi = functions as MethodInfo;
+                if (mi == null) {
+                    ArrayList overloads = (ArrayList) functions;
+                    overloads.Add (info);
+                } else {
+                    ArrayList overloads = new ArrayList (3);
+                    overloads.Add (mi);
+                    overloads.Add (info);
+                    _methodInfoCollection [key] = overloads;
+                }
+            }
+        }
+
         /// <summary>
         /// Scans a given <see cref="Type" /> for filters.
         /// </summary>
+        /// <param name="extensionAssembly">The <see cref="ExtensionAssembly" /> containing the <see cref="Type" /> to scan.</param>
         /// <param name="type">The <see cref="Type" /> to scan.</param>
         /// <param name="task">The <see cref="Task" /> which will be used to output messages to the build log.</param>
         /// <returns>
         /// <see langword="true" /> if <paramref name="type" /> represents a
         /// <see cref="Filter" />; otherwise, <see langword="false" />.
         /// </returns>
-        private static bool ScanTypeForFilters(Type type, Task task) {
+        private static bool ScanTypeForFilters(ExtensionAssembly extensionAssembly, Type type, Task task) {
             try {
                 ElementNameAttribute elementNameAttribute = (ElementNameAttribute) 
                     Attribute.GetCustomAttribute(type, typeof(ElementNameAttribute));
@@ -636,7 +662,7 @@ namespace NAnt.Core {
                 if (type.IsSubclassOf(typeof(Filter)) && !type.IsAbstract && elementNameAttribute != null) {
                     task.Log(Level.Debug, "Creating FilterBuilder for \"{0}\".", 
                         type.Name);
-                    FilterBuilder builder = new FilterBuilder(type.Assembly, type.FullName);
+                    FilterBuilder builder = new FilterBuilder(extensionAssembly, type.FullName);
                     if (FilterBuilders[builder.FilterName] == null) {
                         FilterBuilders.Add(builder);
 

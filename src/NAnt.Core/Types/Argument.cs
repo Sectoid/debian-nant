@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -29,6 +29,13 @@ namespace NAnt.Core.Types {
     /// <summary>
     /// Represents a command-line argument.
     /// </summary>
+    /// <remarks>
+    ///   <para>
+    ///   When passed to an external application, the argument will be quoted
+    ///   when appropriate. This does not apply to the <see cref="Line" />
+    ///   parameter, which is always passed as is.
+    ///   </para>
+    /// </remarks>
     /// <example>
     ///   <para>
     ///   A single command-line argument containing a space character.
@@ -60,6 +67,7 @@ namespace NAnt.Core.Types {
     ///     ]]>
     ///   </code>
     /// </example>
+    [Serializable]
     [ElementName("arg")]
     public class Argument : Element {
         #region Private Instance Fields

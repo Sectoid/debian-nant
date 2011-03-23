@@ -20,16 +20,16 @@
                 <include name="../../src/CommonAssemblyInfo.cs" />
             </sources>
             <references>
-                <include name="${lib.framework.dir}/log4net.dll" />
                 <include name="${build.dir}/bin/NAnt.Core.dll" />
                 <include name="${build.dir}/bin/NAnt.Core.Tests.dll" />
-                <include name="${lib.framework.dir}/nunit.framework.dll" />
+                <include name="${nant::scan-probing-paths('nunit.framework.dll')}" />
             </references>
         </csc>
     </target>
     <target name="test" depends="build">
          <nunit2>
             <formatter type="Plain" />
+            <formatter type="Xml" usefile="true" extension=".xml" outputdir="${build.dir}/results" />
             <test assemblyname="${build.dir}/bin/${nant.console.name}.Tests.dll" appconfig="${path::combine(nant::get-base-directory(), 'nant.tests.config')}"/>
          </nunit2>
     </target>

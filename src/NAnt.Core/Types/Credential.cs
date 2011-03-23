@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -36,7 +36,7 @@ namespace NAnt.Core.Types {
         private string _password;
         private string _userName;
         private bool _ifDefined = true;
-        private bool _unlessDefined = false;
+        private bool _unlessDefined;
 
         #endregion Private Instance Fields
 

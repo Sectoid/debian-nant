@@ -16,10 +16,11 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // Matthew Mastracci (mmastrac at users.sourceforge.net)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.CodeDom.Compiler;
+using System.Collections;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.Reflection;
@@ -29,10 +30,12 @@ using Microsoft.Win32;
 
 using NAnt.Core;
 using NAnt.Core.Attributes;
+using NAnt.Core.Extensibility;
 using NAnt.Core.Tasks;
 using NAnt.Core.Types;
 using NAnt.Core.Util;
 
+using NAnt.VSNet.Extensibility;
 using NAnt.VSNet.Types;
 
 namespace NAnt.VSNet.Tasks {
@@ -182,7 +185,9 @@ namespace NAnt.VSNet.Tasks {
     /// </example>
     [Serializable()]
     [TaskName("solution")]
-    public class SolutionTask : Task {
+    [PluginConsumer(typeof(IProjectBuildProvider))]
+    [PluginConsumer(typeof(ISolutionBuildProvider))]
+    public class SolutionTask : Task, IPluginConsumer {
         #region Public Instance Constructors
 
         /// <summary>
@@ -194,6 +199,9 @@ namespace NAnt.VSNet.Tasks {
             _excludeProjects = new FileSet();
             _assemblyFolders = new FileSet();
             _webMaps = new WebMapCollection();
+            _projectFactory = ProjectFactory.Create(this);
+            _solutionFactory = SolutionFactory.Create();
+            _configuration = new Configuration ();
         }
 
         #endregion Public Instance Constructors
@@ -250,8 +258,25 @@ namespace NAnt.VSNet.Tasks {
         [TaskAttribute("configuration", Required=true)]
         [StringValidator(AllowEmpty=false)]
         public string Configuration {
+            get { return _configuration.Name; }
+            set { _configuration.Name = StringUtils.ConvertEmptyToNull(value); }
+        }
+
+        /// <summary>
+        /// The name of platform to build the solution for.
+        /// </summary>
+        [TaskAttribute("platform", Required=false)]
+        [StringValidator(AllowEmpty=true)]
+        public string Platform {
+            get { return _configuration.Platform; }
+            set { _configuration.Platform = value; }
+        }
+
+        /// <summary>
+        /// Gets the solution configuration to build.
+        /// </summary>
+        public Configuration SolutionConfig {
             get { return _configuration; }
-            set { _configuration = StringUtils.ConvertEmptyToNull(value); }
         }
 
         /// <summary>
@@ -331,7 +356,7 @@ namespace NAnt.VSNet.Tasks {
                     foreach (string folder in AssemblyFolders.DirectoryNames) {
                         if (!_assemblyFolderList.Contains(folder)) {
                             _assemblyFolderList.Add(folder);
-                                Log(Level.Debug, "Added \"{0}\" to AssemblyFolders.",
+                            Log(Level.Debug, "Added \"{0}\" to AssemblyFolders.",
                                 folder);
                         }
                     }
@@ -353,6 +378,29 @@ namespace NAnt.VSNet.Tasks {
         }
 
         #endregion Public Instance Properties
+
+        #region Internal Instance Properties
+
+        internal ProjectFactory ProjectFactory {
+            get { return _projectFactory; }
+        }
+
+        internal SolutionFactory SolutionFactory {
+            get { return _solutionFactory; }
+        }
+
+        #endregion Internal Instance Properties
+
+        #region Implementation of IPluginConsumer
+
+        void IPluginConsumer.ConsumePlugin(IPlugin plugin) {
+            if (plugin is IProjectBuildProvider)
+                ProjectFactory.RegisterProvider((IProjectBuildProvider) plugin);
+            if (plugin is ISolutionBuildProvider)
+                SolutionFactory.RegisterProvider((ISolutionBuildProvider) plugin);
+        }
+
+        #endregion Implementation of IPluginConsumer
 
         #region Override implementation of Task
 
@@ -405,7 +453,7 @@ namespace NAnt.VSNet.Tasks {
                         using (GacCache gacCache = new GacCache(this.Project)) {
                             SolutionBase sln = SolutionFactory.LoadSolution(this, 
                                 tfc, gacCache, referencesResolver);
-                            if (!sln.Compile(Configuration)) {
+                            if (!sln.Compile(_configuration)) {
                                 throw new BuildException("Project build failed.", Location);
                             }
                         }
@@ -565,7 +613,7 @@ namespace NAnt.VSNet.Tasks {
         #region Private Instance Fields
 
         private FileInfo _solutionFile;
-        private string _configuration;
+        private Configuration _configuration;
         private DirectoryInfo _outputDir;
         private FileSet _projects;
         private FileSet _referenceProjects;
@@ -575,6 +623,8 @@ namespace NAnt.VSNet.Tasks {
         private WebMapCollection _webMaps;
         private bool _includeVSFolders = true;
         private bool _enableWebDav;
+        private readonly SolutionFactory _solutionFactory;
+        private readonly ProjectFactory _projectFactory;
 
         #endregion Private Instance Fields
     }

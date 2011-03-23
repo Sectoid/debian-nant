@@ -95,13 +95,13 @@ namespace NAnt.Core.Filters {
         private int _maxTokenLength;
         private string _outputBuffer;
         private bool _endStreamAfterBuffer;
-        private int _bufferPosition = 0;
+        private int _bufferPosition;
         private bool _unknownToken = true;
         private bool _tokenNotFound = true;
-        private bool _ignoreCase = false;
+        private bool _ignoreCase;
 
         //Method used for Read
-        private AcquireCharDelegate ReadChar = null;
+        private AcquireCharDelegate ReadChar;
 
         #endregion Private Instance Fields
 
@@ -190,7 +190,7 @@ namespace NAnt.Core.Filters {
         /// <summary>
         /// Initialize the filter by setting its parameters.
         /// </summary>
-        protected override void InitializeElement(XmlNode elementNode) {
+        protected override void Initialize() {
             foreach (Token token in Tokens) {
                 if (token.IfDefined && !token.UnlessDefined) {
                     _tokenValues.Add(token.Key, token.Value);

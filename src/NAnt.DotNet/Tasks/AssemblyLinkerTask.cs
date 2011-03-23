@@ -17,7 +17,7 @@
 //
 // Joe Jones (joejo@microsoft.com)
 // Gerry Shaw (gerry_shaw@yahoo.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 // Giuseppe Greco (giuseppe.greco@agamura.com)
 
 using System;
@@ -39,7 +39,7 @@ namespace NAnt.DotNet.Tasks {
     /// </summary>
     /// <remarks>
     ///   <para>
-    ///   All specified sources will be embedded using the <c>/embed</c> flag.  
+    ///   All specified sources will be embedded using the <c>/embed</c> flag.
     ///   Other source types are not supported.
     ///   </para>
     /// </remarks>
@@ -57,6 +57,21 @@ namespace NAnt.DotNet.Tasks {
     ///     ]]>
     ///   </code>
     /// </example>
+    /// <example>
+    ///   <para>
+    ///   Create an executable assembly manifest from modules.
+    ///   </para>
+    ///   <code>
+    ///     <![CDATA[
+    /// <al output="Client.exe" target="exe" main="Program.Main">
+    ///     <modules>
+    ///         <include name="Client.netmodule" />
+    ///         <include name="Common.netmodule" />
+    ///     </modules>
+    /// </al>
+    ///     ]]>
+    ///   </code>
+    /// </example>
     [TaskName("al")]
     [ProgramLocation(LocationType.FrameworkDir)]
     public class AssemblyLinkerTask : NAnt.Core.Tasks.ExternalProgramBase {
@@ -70,7 +85,7 @@ namespace NAnt.DotNet.Tasks {
         private string _configuration;
         private string _copyright;
         private string _culture;
-        private bool _delaySign;
+        private DelaySign _delaySign;
         private string _description;
         private FileInfo _evidenceFile;
         private string _fileVersion;
@@ -78,6 +93,7 @@ namespace NAnt.DotNet.Tasks {
         private string _keyContainer;
         private FileInfo _keyfile;
         private string _mainMethod;
+        private ModuleSet _modules = new ModuleSet();
         private string _product;
         private string _productVersion;
         private FileSet _resources = new FileSet();
@@ -173,10 +189,10 @@ namespace NAnt.DotNet.Tasks {
 
         /// <summary>
         /// Specifies whether the assembly should be partially signed. The default
-        /// is <see langword="false" />.
+        /// is <see langword="NAnt.DotNet.Types.DelaySign.NotSet" />.
         /// </summary>
         [TaskAttribute("delaysign", Required=false)]
-        public bool DelaySign {
+        public DelaySign DelaySign {
             get { return _delaySign; }
             set { _delaySign = value; }
         }
@@ -279,6 +295,15 @@ namespace NAnt.DotNet.Tasks {
         public string MainMethod {
             get { return _mainMethod; }
             set { _mainMethod = StringUtils.ConvertEmptyToNull(value); }
+        }
+
+        /// <summary>
+        /// One or more modules to be compiled into an assembly.
+        /// </summary>
+        [BuildElement("modules")]
+        public ModuleSet ModuleSet {
+            get { return _modules; }
+            set { _modules = value; }
         }
 
         /// <summary>
@@ -472,6 +497,11 @@ namespace NAnt.DotNet.Tasks {
             if (Resources.BaseDirectory == null) {
                 Resources.BaseDirectory = new DirectoryInfo(Project.BaseDirectory);
             }
+            // ensure base directory is set, even if fileset was not initialized
+            // from XML
+            if (ModuleSet.Dir == null) {
+                ModuleSet.Dir = new DirectoryInfo(Project.BaseDirectory);
+            }
 
             if (NeedsCompiling()) {
                 // create temp response file to hold compiler options
@@ -480,8 +510,13 @@ namespace NAnt.DotNet.Tasks {
 
                 try {
                     Log(Level.Info, ResourceUtils.GetString("String_CompilingFiles"),
-                        Resources.FileNames.Count + EmbeddedResources.Count, 
-                        OutputFile.FullName);
+                        Resources.FileNames.Count + EmbeddedResources.Count +
+                        ModuleSet.Modules.Count, OutputFile.FullName);
+
+                    // write modules to compile into assembly
+                    foreach (Module module in ModuleSet.Modules) {
+                        writer.WriteLine("\"{0}\"", module.ToString());
+                    }
 
                     // write output target
                     writer.WriteLine("/target:\"{0}\"", OutputTarget);
@@ -515,8 +550,19 @@ namespace NAnt.DotNet.Tasks {
                     }
 
                     // delay sign the assembly
-                    if (DelaySign) {
-                        writer.WriteLine("/delaysign+");
+                    switch (DelaySign) {
+                        case DelaySign.NotSet:
+                            break;
+                        case DelaySign.Yes:
+                            writer.WriteLine("/delaysign+");
+                            break;
+                        case DelaySign.No:
+                            writer.WriteLine("/delaysign-");
+                            break;
+                        default:
+                            throw new BuildException (string.Format (CultureInfo.InvariantCulture,
+                                "Value {0} is not supported for \"delaysign\".",
+                                DelaySign), Location);
                     }
 
                     // description field
@@ -658,8 +704,20 @@ namespace NAnt.DotNet.Tasks {
                 return true;
             }
 
+            string fileName = null;
+
+            // check if modules were updated
+            foreach (Module module in ModuleSet.Modules) {
+                fileName = FileSet.FindMoreRecentLastWriteTime(module.File, OutputFile.LastWriteTime);
+                if (fileName != null) {
+                    Log(Level.Verbose, ResourceUtils.GetString("String_FileHasBeenUpdated"),
+                        fileName);
+                    return true;
+                }
+            }
+
             // check if (embedded)resources were updated
-            string fileName = FileSet.FindMoreRecentLastWriteTime(Resources.FileNames, OutputFile.LastWriteTime);
+            fileName = FileSet.FindMoreRecentLastWriteTime(Resources.FileNames, OutputFile.LastWriteTime);
             if (fileName != null) {
                 Log(Level.Verbose, ResourceUtils.GetString("String_FileHasBeenUpdated"),
                     fileName);

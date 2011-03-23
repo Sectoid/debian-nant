@@ -16,7 +16,7 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // Tomas Restrepo (tomasr@mvps.org)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using NAnt.Core.Attributes;
 
@@ -28,10 +28,10 @@ namespace NAnt.Core.Types {
     public class Option : Element {
         #region Private Instance Fields
 
-        private string _name = null;
-        private string _value = null;
+        private string _name;
+        private string _value;
         private bool _ifDefined = true;
-        private bool _unlessDefined = false;
+        private bool _unlessDefined;
 
         #endregion Private Instance Fields
 

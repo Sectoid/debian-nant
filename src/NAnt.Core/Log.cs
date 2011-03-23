@@ -18,7 +18,7 @@
 // John R. Hicks (angryjohn69@nc.rr.com)
 // Gerry Shaw (gerry_shaw@yahoo.com)
 // William E. Caputo (wecaputo@thoughtworks.com | logosity@yahoo.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 //
 // Some of this class was based on code from the Mono class library.
 // Copyright (C) 2002 John R. Hicks <angryjohn69@nc.rr.com>
@@ -30,6 +30,7 @@
 
 using System;
 using System.Collections;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Runtime.Remoting.Lifetime;
@@ -43,6 +44,7 @@ namespace NAnt.Core {
     /// <summary>
     /// Defines the set of levels recognised by the NAnt logging system.
     /// </summary>
+    [TypeConverter(typeof(LevelConverter))]
     public enum Level : int {
         /// <summary>
         /// Designates fine-grained informational events that are most useful 
@@ -82,6 +84,38 @@ namespace NAnt.Core {
     }
 
     /// <summary>
+    /// Specialized <see cref="EnumConverter" /> for <see cref="Level" />
+    /// that ignores case when converting from string.
+    /// </summary>
+    internal class LevelConverter : EnumConverter {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="LevelConverter" />
+        /// class.
+        /// </summary>
+        public LevelConverter() : base(typeof(Level)) {
+        }
+
+        /// <summary>
+        /// Converts the given object to the type of this converter, using the 
+        /// specified context and culture information.
+        /// </summary>
+        /// <param name="context">An <see cref="ITypeDescriptorContext"/> that provides a format context.</param>
+        /// <param name="culture">A <see cref="CultureInfo"/> object. If a <see langword="null"/> is passed, the current culture is assumed.</param>
+        /// <param name="value">The <see cref="Object"/> to convert.</param>
+        /// <returns>
+        /// An <see cref="Object"/> that represents the converted value.
+        /// </returns>
+        public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value) {
+            string stringValue = value as string;
+            if (stringValue != null)
+                return Enum.Parse(EnumType, stringValue, true);
+
+            // default to EnumConverter behavior
+            return base.ConvertFrom(context, culture, value);
+        }
+    }
+
+    /// <summary>
     /// Class representing an event occurring during a build.
     /// </summary>
     /// <remarks>
@@ -109,9 +143,6 @@ namespace NAnt.Core {
         /// class.
         /// </summary>
         public BuildEventArgs() {
-            _project = null;
-            _target = null;
-            _task = null;
         }
 
         /// <summary>
@@ -121,8 +152,6 @@ namespace NAnt.Core {
         /// <param name="project">The <see cref="Project" /> that emitted the event.</param>
         public BuildEventArgs(Project project) {
             _project = project;
-            _target = null;
-            _task = null;
         }
     
         /// <summary>
@@ -133,7 +162,6 @@ namespace NAnt.Core {
         public BuildEventArgs(Target target) {
             _project = target.Project;
             _target = target;
-            _task = null;
         }
     
         /// <summary>
@@ -642,7 +670,7 @@ namespace NAnt.Core {
         /// logger.
         /// </summary>
         /// <param name="e">The event to output.</param>
-        /// <param name="indentationLength">TODO</param>
+        /// <param name="indentationLength">The number of characters that the message should be indented.</param>
         private void OutputMessage(BuildEventArgs e, int indentationLength) {
             if (e.MessageLevel >= Threshold) {
                 string txt = e.Message;
@@ -704,16 +732,12 @@ namespace NAnt.Core {
         private TextWriter _outputWriter;
         private bool _emacsMode;
 
-        #endregion Private Instance Fields
-
-        #region Private Static Fields
-
         /// <summary>
         /// Holds a stack of reports for all running builds.
         /// </summary>
-        private Stack _buildReports = new Stack();
+        private readonly Stack _buildReports = new Stack();
 
-        #endregion Private Static Fields
+        #endregion Private Instance Fields
     }
 
     /// <summary>
@@ -735,7 +759,7 @@ namespace NAnt.Core {
         /// <summary>
         /// The start time of the build process.
         /// </summary>
-        public DateTime StartTime;
+        public readonly DateTime StartTime;
 
         public BuildReport(DateTime startTime) {
             StartTime = startTime;
@@ -912,6 +936,18 @@ namespace NAnt.Core {
                 mailMessage.Body = _buffer.ToString();
 
                 string smtpUsername = GetPropertyValue(properties, "smtp.username", null, false);
+                string smtpPort = GetPropertyValue(properties, "smtp.port", null, false);
+                string smtpEnableSSL = GetPropertyValue(properties, "smtp.enablessl", null, false);
+
+#if (NET_1_1)
+                // when either a user name or a specific port is specified, or
+                // SSL is enabled, then send the message must be sent using the 
+                // network (instead of using the local SMTP pickup directory)
+                if (smtpUsername != null || smtpPort != null || IsSSLEnabled(properties)) {
+                    mailMessage.Fields[cdoNamespaceURI + "sendusing"] = 2; // cdoSendUsingPort
+                }
+#endif
+
                 if (smtpUsername != null) {
 #if (NET_1_1)
                     mailMessage.Fields[cdoNamespaceURI + "smtpauthenticate"] = 1;
@@ -924,7 +960,7 @@ namespace NAnt.Core {
                 }
 
                 string smtpPassword = GetPropertyValue(properties, "smtp.password", null, false);
-                if (smtpPassword == null) {
+                if (smtpPassword != null) {
 #if (NET_1_1)
                     mailMessage.Fields[cdoNamespaceURI + "sendpassword"] = smtpPassword;
 #else
@@ -934,7 +970,6 @@ namespace NAnt.Core {
 #endif
                 }
 
-                string smtpPort = GetPropertyValue(properties, "smtp.port", null, false);
                 if (smtpPort != null) {
 #if (NET_1_1)
                     mailMessage.Fields[cdoNamespaceURI + "smtpserverport"] = smtpPort;
@@ -945,10 +980,9 @@ namespace NAnt.Core {
 #endif
                 }
 
-                string enableSSL = GetPropertyValue(properties, "smtp.enablessl", null, false);
-                if (enableSSL != null) {
+                if (smtpEnableSSL != null) {
 #if (NET_1_1)
-                    mailMessage.Fields[cdoNamespaceURI + "smtpusessl"] = enableSSL;
+                    mailMessage.Fields[cdoNamespaceURI + "smtpusessl"] = smtpEnableSSL;
 #else
                     Console.Error.WriteLine("[MailLogger] MailLogger.smtp.enablessl"
                         + " is not supported if NAnt is built targeting .NET"
@@ -1011,6 +1045,20 @@ namespace NAnt.Core {
             }
 
             return value;
+        }
+
+        private bool IsSSLEnabled (PropertyDictionary properties) {
+            string enableSSL = GetPropertyValue(properties, "smtp.enablessl", null, false);
+            if (enableSSL != null) {
+                try {
+                    return bool.Parse (enableSSL);
+                } catch (FormatException) {
+                    throw new ArgumentException (string.Format (CultureInfo.InvariantCulture,
+                        "Invalid value '{0}' for MailLogger.smtp.enablessl property.",
+                        enableSSL));
+                }
+            }
+            return false;
         }
 
         private void AttachFiles(MailMessage mail, Project project, string filesetID) {
@@ -1334,18 +1382,20 @@ namespace NAnt.Core {
         /// <param name="value">The string to write. If <paramref name="value" /> is a null reference, only the line termination characters are written.</param>
         public override void WriteLine(string value) {
             _message += value;
-            Flush();
+            _task.Log(OutputLevel, _message);
+            _message = string.Empty;
         }
 
         /// <summary>
         /// Writes out a formatted string using the same semantics as 
-        /// <see cref="string.Format(string, object[])" />.
+        /// <see cref="M:string.Format(string, object[])" />.
         /// </summary>
         /// <param name="line">The formatting string.</param>
         /// <param name="args">The object array to write into format string.</param>
         public override void WriteLine(string line, params object[] args) {
             _message += string.Format(CultureInfo.InvariantCulture, line, args);
-            Flush();
+            _task.Log(OutputLevel, _message);
+            _message = string.Empty;
         }
 
         /// <summary>
@@ -1405,8 +1455,8 @@ namespace NAnt.Core {
 
         #region Private Instance Fields
 
-        private Task _task;
-        private Level _outputLevel;
+        private readonly Task _task;
+        private readonly Level _outputLevel;
         private string _message = string.Empty;
 
         #endregion Private Instance Fields

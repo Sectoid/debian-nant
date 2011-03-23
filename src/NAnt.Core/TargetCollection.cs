@@ -26,7 +26,7 @@ using NAnt.Core.Util;
 namespace NAnt.Core {
     [Serializable()]
     public class TargetCollection : ArrayList {
-        private static readonly log4net.ILog logger = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly log4net.ILog logger = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         public virtual int Add(Target t){
             // throw an exception if an attempt is made to add a null target
             if (t == null) {

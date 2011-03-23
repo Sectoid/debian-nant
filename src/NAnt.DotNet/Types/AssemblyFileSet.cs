@@ -91,10 +91,15 @@ namespace NAnt.DotNet.Types {
     ///     </item>
     ///     <item>
     ///       <description>
-    ///       The assembly directory of the current target framework.
+    ///       The list of reference assemblies of the current target framework.
     ///       </description>
     ///     </item>
     ///   </list>
+    ///   <para>
+    ///   The reference assemblies of a given target framework are defined using
+    ///   &lt;reference-assemblies&gt; filesets in the &lt;framework&gt; node
+    ///   of the NAnt configuration file.
+    ///   </para>
     /// </remarks>
     /// <example>
     ///   <para>
@@ -240,15 +245,11 @@ namespace NAnt.DotNet.Types {
                     }
 
                     if (Project.TargetFramework != null) {
-                        string frameworkDir = Project.TargetFramework.FrameworkAssemblyDirectory.FullName;
-                        string fullPath = Path.Combine(frameworkDir, pattern);
-
-                        // check whether an assembly matching the pattern
-                        // exists in the assembly directory of the current
-                        // framework
-                        if (File.Exists(fullPath)) {
-                            // found a system reference
-                            this.FileNames.Add(fullPath);
+                        string resolveAssembly = Project.TargetFramework.
+                            ResolveAssembly (pattern);
+                        if (resolveAssembly != null) {
+                            // found reference assembly
+                            this.FileNames.Add(resolveAssembly);
 
                             // continue with the next pattern
                             continue;

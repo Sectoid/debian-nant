@@ -17,11 +17,13 @@
 //
 // Ian McLean (ianm@activestate.com)
 // Mitch Denny (mitch.denny@monash.net)
+// Charles Chan (cchan_qa@users.sourceforge.net)
 
 using System;
 using System.Globalization;
 using System.IO;
 using System.Xml;
+using System.Xml.XPath;
 
 using NAnt.Core;
 using NAnt.Core.Attributes;
@@ -146,7 +148,7 @@ namespace NAnt.Core.Tasks {
         /// Executes the XML peek task.
         /// </summary>
         protected override void ExecuteTask() {
-            Log(Level.Info, "Peeking at '{0}' with XPath expression '{1}'.", 
+            Log(Level.Verbose, "Peeking at '{0}' with XPath expression '{1}'.", 
                 XmlFile.FullName,  XPath);
 
             // ensure the specified xml file exists
@@ -179,7 +181,7 @@ namespace NAnt.Core.Tasks {
         /// A <see cref="XmlDocument">document</see> containing
         /// the document object representing the file.
         /// </returns>
-        private XmlDocument LoadDocument(string fileName)  {
+        private XmlDocument LoadDocument(string fileName) {
             XmlDocument document = null;
 
             try {
@@ -188,7 +190,7 @@ namespace NAnt.Core.Tasks {
                 return document;
             } catch (Exception ex) {
                 throw new BuildException(string.Format(CultureInfo.InvariantCulture,
-                    ResourceUtils.GetString("NA1158"), fileName), Location, 
+                    ResourceUtils.GetString("NA1158"), fileName), Location,
                     ex);
             }
         }
@@ -204,7 +206,8 @@ namespace NAnt.Core.Tasks {
         /// </returns>
         private string GetNodeContents(string xpath, XmlDocument document, int nodeIndex ) {
             string contents = null;
-            XmlNodeList nodes;
+            Object result = null;
+            int numNodes = 0;
 
             try {
                 XmlNamespaceManager nsMgr = new XmlNamespaceManager(document.NameTable);
@@ -213,29 +216,60 @@ namespace NAnt.Core.Tasks {
                         nsMgr.AddNamespace(xmlNamespace.Prefix, xmlNamespace.Uri);
                     }
                 }
-                nodes = document.SelectNodes(xpath, nsMgr);
+                XPathNavigator nav = document.CreateNavigator();
+                XPathExpression expr = nav.Compile(xpath);
+                expr.SetContext(nsMgr);
+                result = nav.Evaluate(expr);
             } catch (Exception ex) {
                 throw new BuildException(string.Format(CultureInfo.InvariantCulture,
                     ResourceUtils.GetString("NA1155"), xpath), 
                     Location, ex);
             }
 
-            if (nodes == null || nodes.Count == 0) {
-                throw new BuildException(string.Format(CultureInfo.InvariantCulture, 
-                    ResourceUtils.GetString("NA1156"), xpath), 
+            if (result == null) {
+                throw new BuildException(string.Format(CultureInfo.InvariantCulture,
+                    ResourceUtils.GetString("NA1156"), xpath),
                     Location);
             }
 
-            Log(Level.Info, "Found '{0}' nodes with the XPath expression '{1}'.",
-                nodes.Count, xpath);
-          
-            if (nodeIndex >= nodes.Count){
-                throw new BuildException(string.Format(CultureInfo.InvariantCulture, 
-                    ResourceUtils.GetString("NA1157"), nodeIndex), Location);
+            // When using XPathNavigator.Evaluate(),
+            // the result of the expression can be one of Boolean, number, 
+            // string, or node set). This maps to Boolean, Double, String, 
+            // or XPathNodeIterator objects respectively.
+            // So therefore if the result is not null, then there is at least
+            // 1 node that matches.
+            numNodes = 1;
+
+            // If the result is a node set, then there could be multiple nodes.
+            XPathNodeIterator xpathNodesIterator = result as XPathNodeIterator;
+            if (xpathNodesIterator != null) {
+                numNodes = xpathNodesIterator.Count;
             }
-            
-            XmlNode selectedNode = nodes[nodeIndex];
-            contents = selectedNode.InnerXml;
+
+            Log(Level.Verbose, "Found '{0}' nodes with the XPath expression '{1}'.",
+                numNodes, xpath);
+          
+            if (xpathNodesIterator != null) {
+                if (nodeIndex >= numNodes){
+                    throw new BuildException(string.Format(CultureInfo.InvariantCulture, 
+                        ResourceUtils.GetString("NA1157"), nodeIndex), Location);
+                }
+
+                while (xpathNodesIterator.MoveNext()) {
+                    // CurrentPosition is 1-based.
+                    if (xpathNodesIterator.CurrentPosition == (nodeIndex + 1)) {
+                        contents = xpathNodesIterator.Current.Value;
+                    }
+                }
+            } else {
+                if (result is IFormattable) {
+                    IFormattable formattable = (IFormattable) result;
+                    contents = formattable.ToString(null, CultureInfo.InvariantCulture);
+                } else {
+                    contents = result.ToString();
+                }
+            }
+
             return contents;
         }
 

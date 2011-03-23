@@ -22,6 +22,7 @@
 using System;
 using System.IO;
 using System.Globalization;
+using System.Xml;
 
 using NUnit.Framework;
 
@@ -74,12 +75,12 @@ namespace Tests.NAnt.Core {
 
             CheckCommon(p);
 
-            Assert.AreEqual("The value is " + Boolean.TrueString + ".", p.ExpandProperties("The value is ${nant.tasks.fail}.", null));
+            Assert.AreEqual("The value is " + Boolean.TrueString + ".", p.ExpandProperties("The value is ${task::exists('fail')}.", null));
         }
 
         [Test]
         public void Test_Initialization_DOMBuildFile() {
-            System.Xml.XmlDocument doc = new System.Xml.XmlDocument();
+            XmlDocument doc = new XmlDocument();
             doc.LoadXml(FormatBuildFile("", ""));
             Project p = new Project(doc, Level.Error, 0);
 
@@ -91,14 +92,14 @@ namespace Tests.NAnt.Core {
 
             CheckCommon(p);
 
-            Assert.AreEqual("The value is " + Boolean.TrueString + ".", p.ExpandProperties("The value is ${nant.tasks.fail}.", null));
+            Assert.AreEqual("The value is " + Boolean.TrueString + ".", p.ExpandProperties("The value is ${task::exists('fail')}.", null));
         }
 
         [Test]
         public void Test_OnBuildStarted() {
             MockBuildEventListener b = new MockBuildEventListener();
 
-            System.Xml.XmlDocument doc = new System.Xml.XmlDocument();
+            XmlDocument doc = new XmlDocument();
             doc.LoadXml(FormatBuildFile("", ""));
             Project p = new Project(doc, Level.Info, 0);
 
@@ -112,7 +113,7 @@ namespace Tests.NAnt.Core {
         public void Test_OnBuildFinished() {
             MockBuildEventListener b = new MockBuildEventListener();
 
-            System.Xml.XmlDocument doc = new System.Xml.XmlDocument();
+            XmlDocument doc = new XmlDocument();
             doc.LoadXml(FormatBuildFile("", ""));
             Project p = new Project(doc, Level.Info, 0);
 
@@ -127,7 +128,7 @@ namespace Tests.NAnt.Core {
         public void Test_OnTargetStarted() {
             MockBuildEventListener b = new MockBuildEventListener();
 
-            System.Xml.XmlDocument doc = new System.Xml.XmlDocument();
+            XmlDocument doc = new XmlDocument();
             doc.LoadXml(FormatBuildFile("", ""));
             Project p = new Project(doc, Level.Info, 0);
 
@@ -141,7 +142,7 @@ namespace Tests.NAnt.Core {
         public void Test_OnTargetFinished() {
             MockBuildEventListener b = new MockBuildEventListener();
 
-            System.Xml.XmlDocument doc = new System.Xml.XmlDocument();
+            XmlDocument doc = new XmlDocument();
             doc.LoadXml(FormatBuildFile("", ""));
             Project p = new Project(doc, Level.Info, 0);
 
@@ -155,7 +156,7 @@ namespace Tests.NAnt.Core {
         public void Test_OnTaskStarted() {
             MockBuildEventListener b = new MockBuildEventListener();
 
-            System.Xml.XmlDocument doc = new System.Xml.XmlDocument();
+            XmlDocument doc = new XmlDocument();
             doc.LoadXml(FormatBuildFile("", ""));
             Project p = new Project(doc, Level.Info, 0);
 
@@ -169,7 +170,7 @@ namespace Tests.NAnt.Core {
         public void Test_OnTaskFinished() {
             MockBuildEventListener b = new MockBuildEventListener();
 
-            System.Xml.XmlDocument doc = new System.Xml.XmlDocument();
+            XmlDocument doc = new XmlDocument();
             doc.LoadXml(FormatBuildFile("", ""));
             Project p = new Project(doc, Level.Info, 0);
 
@@ -193,6 +194,75 @@ namespace Tests.NAnt.Core {
             Assert.IsTrue (p.Properties.Contains ("test"), "#6");
         }
 
+        [Test]
+        public void TargetFramework() {
+            Project p = CreateEmptyProject();
+
+            FrameworkInfo tf = p.TargetFramework;
+            Assert.IsNotNull (tf, "#1");
+            Assert.IsNotNull(tf.ClrVersion, "#2");
+            Assert.IsNotNull(tf.Description, "#3");
+            Assert.IsNotNull(tf.Family, "#4");
+            Assert.IsNotNull(tf.FrameworkAssemblyDirectory, "#5");
+            Assert.IsNotNull(tf.FrameworkDirectory, "#6");
+            Assert.IsTrue(tf.IsValid, "#7");
+            Assert.IsNotNull(tf.Name, "#8");
+            Assert.IsNotNull(tf.Project, "#9");
+            Assert.AreNotSame(p, tf.Project, "#10");
+            Assert.IsNotNull(tf.TaskAssemblies, "#11");
+            Assert.IsNotNull(tf.Version, "#12");
+        }
+
+        [Test]
+        public void TargetFramework_Invalid () {
+            FrameworkInfo invalid = null;
+
+            Project p = CreateEmptyProject();
+            foreach (FrameworkInfo framework in p.Frameworks) {
+                if (!framework.IsValid) {
+                    invalid = framework;
+                    break;
+                }
+            }
+
+            if (invalid == null) {
+                Assert.Ignore("Tests requires at least one invalid framework.");
+            }
+
+            FrameworkInfo original = p.TargetFramework;
+
+            try {
+                p.TargetFramework = invalid;
+                Assert.Fail ("#A1");
+            } catch (BuildException ex) {
+                Assert.IsNotNull(ex.InnerException, "#A2");
+                Assert.AreSame(original, p.TargetFramework, "#A3");
+            }
+
+            try {
+                p.TargetFramework = invalid;
+                Assert.Fail ("#B1");
+            } catch (BuildException ex) {
+                Assert.IsNotNull(ex.InnerException, "#B2");
+                Assert.AreSame(original, p.TargetFramework, "#B3");
+            }
+        }
+
+        [Test]
+        public void TargetFramework_Null() {
+            Project p = CreateEmptyProject();
+            try {
+                p.TargetFramework = null;
+                Assert.Fail("#1");
+            } catch (ArgumentNullException ex) {
+                Assert.AreEqual(typeof(ArgumentNullException), ex.GetType(), "#2");
+                Assert.IsNull(ex.InnerException, "#3");
+                Assert.IsNotNull(ex.Message, "#4");
+                Assert.IsNotNull(ex.ParamName, "#5");
+                Assert.AreEqual("value", ex.ParamName, "#6");
+            }
+        }
+
         #endregion Public Instance Methods
 
         #region Protected Instance Methods
@@ -208,32 +278,36 @@ namespace Tests.NAnt.Core {
         #region Private Instance Methods
         
         private void CheckCommon(Project p) {
-            Assert.AreEqual("ProjectTest", p.Properties["nant.project.name"]);
-
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.al"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.attrib"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.call"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.copy"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.delete"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.echo"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.exec"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.fail"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.include"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.mkdir"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.move"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.nant"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.nunit"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.nunit2"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.property"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.sleep"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.style"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.sysinfo"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.touch"]);
-            Assert.AreEqual(Boolean.TrueString, p.Properties["nant.tasks.tstamp"]);
+            Assert.AreEqual("ProjectTest", p.Properties["nant.project.name"], "#1");
+            Assert.IsTrue(TaskExists(p, "al"), "#2");
+            Assert.IsTrue(TaskExists(p, "attrib"), "#3");
+            Assert.IsTrue(TaskExists(p, "call"), "#4");
+            Assert.IsTrue(TaskExists(p, "copy"), "#5");
+            Assert.IsTrue(TaskExists(p, "delete"), "#6");
+            Assert.IsTrue(TaskExists(p, "echo"), "#7");
+            Assert.IsTrue(TaskExists(p, "exec"), "#8");
+            Assert.IsTrue(TaskExists(p, "fail"), "#9");
+            Assert.IsTrue(TaskExists(p, "include"), "#10");
+            Assert.IsTrue(TaskExists(p, "mkdir"), "#11");
+            Assert.IsTrue(TaskExists(p, "move"), "#12");
+            Assert.IsTrue(TaskExists(p, "nant"), "#13");
+            Assert.IsTrue(TaskExists(p, "nunit2"), "#14");
+            Assert.IsTrue(TaskExists(p, "property"), "#15");
+            Assert.IsTrue(TaskExists(p, "sleep"), "#16");
+            Assert.IsTrue(TaskExists(p, "style"), "#17");
+            Assert.IsTrue(TaskExists(p, "sysinfo"), "#18");
+            Assert.IsTrue(TaskExists(p, "touch"), "#19");
+            Assert.IsTrue(TaskExists(p, "tstamp"), "#20");
         }
 
         private string FormatBuildFile(string globalTasks, string targetTasks) {
             return string.Format(CultureInfo.InvariantCulture, _format, TempDirName, globalTasks, targetTasks);
+        }
+
+        private bool TaskExists (Project p, string taskName) {
+            string val = p.ExpandProperties("${task::exists('" + taskName + "')}", 
+                Location.UnknownLocation);
+            return val == Boolean.TrueString;
         }
 
         #endregion Private Instance Methods

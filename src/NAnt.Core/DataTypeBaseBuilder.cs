@@ -23,30 +23,43 @@ using System.Reflection;
 using System.Security.Permissions;
 
 using NAnt.Core.Attributes;
+using NAnt.Core.Extensibility;
 
 namespace NAnt.Core {
-    public class DataTypeBaseBuilder {
+    public class DataTypeBaseBuilder : ExtensionBuilder {
         #region Public Instance Constructors
 
         /// <summary>
-        /// Creates a new instance of the <see cref="DataTypeBaseBuilder" /> 
-        /// class for the specified <see cref="DataTypeBase" /> class in the 
-        /// <see cref="Assembly" /> specified.
+        /// Creates a new instance of the <see cref="DataTypeBaseBuilder" /> class
+        /// for the specified <see cref="DataTypeBase" /> class in the specified
+        /// <see cref="Assembly" />.
         /// </summary>
+        /// <remarks>
+        /// An <see cref="ExtensionAssembly" /> for the specified <see cref="Assembly" />
+        /// is cached for future use.
+        /// </remarks>
         /// <param name="assembly">The <see cref="Assembly" /> containing the <see cref="DataTypeBase" />.</param>
         /// <param name="className">The class representing the <see cref="DataTypeBase" />.</param>
-        public DataTypeBaseBuilder(Assembly assembly, string className) {
-            _assembly = assembly;
-            _className = className;
-
-            // get Element name from attribute
-            ElementNameAttribute ElementNameAttribute = (ElementNameAttribute) 
-                Attribute.GetCustomAttribute(assembly.GetType(ClassName), typeof(ElementNameAttribute));
-
-            _dataTypeName = ElementNameAttribute.Name;
+        public DataTypeBaseBuilder (Assembly assembly, string className)
+            : this (ExtensionAssembly.Create (assembly), className) {
         }
 
         #endregion Public Instance Constructors
+
+        #region Internal Instance Constructors
+
+        /// <summary>
+        /// Creates a new instance of the <see cref="DataTypeBaseBuilder" />
+        /// class for the specified <see cref="DataTypeBase" /> class in the
+        /// <see cref="ExtensionAssembly" /> specified.
+        /// </summary>
+        /// <param name="extensionAssembly">The <see cref="ExtensionAssembly" /> containing the <see cref="DataTypeBase" />.</param>
+        /// <param name="className">The class representing the <see cref="DataTypeBase" />.</param>
+        internal DataTypeBaseBuilder(ExtensionAssembly extensionAssembly, string className) : base (extensionAssembly) {
+            _className = className;
+        }
+
+        #endregion Internal Instance Constructors
 
         #region Public Instance Properties
 
@@ -63,17 +76,6 @@ namespace NAnt.Core {
         }
 
         /// <summary>
-        /// Gets the <see cref="Assembly" /> from which the data type will be
-        /// created.
-        /// </summary>
-        /// <value>
-        /// The <see cref="Assembly" /> containing the data type.
-        /// </value>
-        public Assembly Assembly {
-            get { return _assembly; }
-        }
-
-        /// <summary>
         /// Gets the name of the data type which the <see cref="DataTypeBaseBuilder" />
         /// can create.
         /// </summary>
@@ -82,7 +84,15 @@ namespace NAnt.Core {
         /// can create.
         /// </value>
         public string DataTypeName {
-            get { return _dataTypeName; }
+            get {
+                if (_dataTypeName == null) {
+                    ElementNameAttribute ElementNameAttribute = (ElementNameAttribute) 
+                        Attribute.GetCustomAttribute(Assembly.GetType(ClassName), 
+                        typeof(ElementNameAttribute));
+                    _dataTypeName = ElementNameAttribute.Name;
+                }
+                return _dataTypeName;
+            }
         }
 
         #endregion Public Instance Properties
@@ -105,8 +115,7 @@ namespace NAnt.Core {
 
         #region Private Instance Fields
 
-        private Assembly _assembly;
-        private string _className;
+        private readonly string _className;
         private string _dataTypeName;
 
         #endregion Private Instance Fields

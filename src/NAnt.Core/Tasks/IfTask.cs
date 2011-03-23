@@ -69,7 +69,7 @@ namespace NAnt.Core.Tasks {
     ///   <para>Tests the value of a property using expressions.</para>
     ///   <code>
     ///     <![CDATA[
-    /// <if test="${build.configuration='release'}">
+    /// <if test="${build.configuration=='release'}">
     ///     <echo>Build release configuration</echo>
     /// </if>
     ///     ]]>
@@ -368,8 +368,9 @@ namespace NAnt.Core.Tasks {
 
         #region Override implementation of Task
 
-        protected override void InitializeTask(System.Xml.XmlNode taskNode) {
-            base.InitializeTask (taskNode);
+        protected override void Initialize() {
+            base.Initialize();
+
             //check that we have something to do.
             if ((UpToDateFiles == null || CompareFiles == null) && Test == null && PropertyNameExists == null && PropertyNameTrue == null && TargetNameExists == null) {
                 throw new BuildException("At least one if condition" +

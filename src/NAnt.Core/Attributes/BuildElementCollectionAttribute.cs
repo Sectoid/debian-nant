@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 // Scott Hernandez (ScottHernandez_at_HOtMail_dot_dot_dot_com?)
 
 using System;
@@ -91,7 +91,7 @@ namespace NAnt.Core.Attributes {
 
         #region Private Instance Fields
 
-        private string _elementName = null;
+        private string _elementName;
 
         #endregion Private Instance Fields
     }

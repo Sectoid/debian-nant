@@ -49,6 +49,7 @@ namespace NAnt.DotNet.Tasks {
         private bool _debug;
         private string _define;
         private FileInfo _win32icon;
+        private FileInfo _win32res;
         private bool _warnAsError;
         private WarningAsError _warningAsError = new WarningAsError();
         private string _noWarn;
@@ -57,6 +58,7 @@ namespace NAnt.DotNet.Tasks {
         private string _mainType;
         private string _keyContainer;
         private FileInfo _keyFile;
+        private DelaySign _delaySign = DelaySign.NotSet;
         private AssemblyFileSet _references = new AssemblyFileSet();
         private FileSet _lib = new FileSet();
         private AssemblyFileSet _modules = new AssemblyFileSet();
@@ -70,6 +72,7 @@ namespace NAnt.DotNet.Tasks {
         private bool _supportsNoWarnList;
         private bool _supportsKeyContainer;
         private bool _supportsKeyFile;
+        private bool _supportsDelaySign;
 
         #endregion Private Instance Fields
 
@@ -179,6 +182,20 @@ namespace NAnt.DotNet.Tasks {
         }
 
         /// <summary>
+        /// Specifies a Win32 resource file (.res).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Corresponds to <c>/win32res[ource]:</c> flag.
+        /// </para>
+        /// </remarks>
+        [TaskAttribute("win32res")]
+        public FileInfo Win32Res {
+            get { return _win32res; }
+            set { _win32res = value; }
+        }
+
+        /// <summary>
         /// Instructs the compiler to treat all warnings as errors. The default
         /// is <see langword="false" />.
         /// </summary>
@@ -285,6 +302,17 @@ namespace NAnt.DotNet.Tasks {
         public virtual FileInfo KeyFile {
             get { return _keyFile; }
             set { _keyFile = value; }
+        }
+
+        /// <summary>
+        /// Specifies whether to delay sign the assembly using only the public
+        /// portion of the strong name key. The default is 
+        /// <see cref="T:NAnt.DotNet.Types.DelaySign.NotSet" />.
+        /// </summary>
+        [TaskAttribute("delaysign")]
+        public virtual DelaySign DelaySign {
+            get { return _delaySign; }
+            set { _delaySign = value; }
         }
 
         /// <summary>
@@ -420,6 +448,16 @@ namespace NAnt.DotNet.Tasks {
             set { _supportsKeyFile = value; }
         }
 
+        /// <summary>
+        /// Indicates whether the compiler for a given target framework supports
+        /// the "delaysign" option. The default is <see langword="false" />.
+        /// </summary>
+        [FrameworkConfigurable("supportsdelaysign")]
+        public virtual bool SupportsDelaySign {
+            get { return _supportsDelaySign; }
+            set { _supportsDelaySign = value; }
+        }
+
         #endregion Public Instance Properties
 
         #region Protected Instance Properties
@@ -500,6 +538,11 @@ namespace NAnt.DotNet.Tasks {
                     // rescan to ensure correct assembly resolution
                     References.Scan();
                     Modules.Scan();
+
+                    // create the base directory if it does not exist
+                    if (!Directory.Exists(OutputFile.DirectoryName)) {
+                        Directory.CreateDirectory(OutputFile.DirectoryName);
+                    }                    
                     
                     Log(Level.Info, ResourceUtils.GetString("String_CompilingFiles"),
                         Sources.FileNames.Count, OutputFile.FullName);
@@ -543,6 +586,27 @@ namespace NAnt.DotNet.Tasks {
                             WriteOption(writer, "keyfile", KeyFile.FullName);
                         } else {
                             Log(Level.Warning, ResourceUtils.GetString("String_CompilerDoesNotSupportKeyFile"),
+                                Project.TargetFramework.Description);
+                        }
+                    }
+
+                    if (DelaySign != DelaySign.NotSet) {
+                        if (SupportsDelaySign) {
+                            switch (DelaySign) {
+                                case DelaySign.Yes:
+                                    WriteOption(writer, "delaysign+");
+                                    break;
+                                case DelaySign.No:
+                                    WriteOption(writer, "delaysign-");
+                                    break;
+                                default:
+                                    throw new NotSupportedException (string.Format (
+                                        CultureInfo.InvariantCulture, "The {0}" +
+                                        "value for \"delaysign\" is not supported.",
+                                        DelaySign));
+                            }
+                        } else {
+                            Log(Level.Warning, ResourceUtils.GetString("String_CompilerDoesNotSupportDelaySign"),
                                 Project.TargetFramework.Description);
                         }
                     }
@@ -1087,7 +1151,7 @@ namespace NAnt.DotNet.Tasks {
         /// <param name="name">The name of the option which should be passed to the compiler.</param>
         /// <param name="value">The value of the option which should be passed to the compiler.</param>
         /// <remarks>
-        /// The combination of <paramref name="option" /> and 
+        /// The combination of <paramref name="name" /> and 
         /// <paramref name="value" /> (separated by a colon) is quoted
         /// unless <paramref name="value" /> is already surrounded by quotes.
         /// </remarks>
@@ -1163,6 +1227,16 @@ namespace NAnt.DotNet.Tasks {
             // check if win32icon was updated
             if (Win32Icon != null) {
                 fileName = FileSet.FindMoreRecentLastWriteTime(Win32Icon.FullName, OutputFile.LastWriteTime);
+                if (fileName != null) {
+                    Log(Level.Verbose, ResourceUtils.GetString("String_FileHasBeenUpdated"),
+                        fileName);
+                    return true;
+                }
+            }
+
+            // check if win32 resource was updated
+            if (Win32Res != null) {
+                fileName = FileSet.FindMoreRecentLastWriteTime(Win32Res.FullName, OutputFile.LastWriteTime);
                 if (fileName != null) {
                     Log(Level.Verbose, ResourceUtils.GetString("String_FileHasBeenUpdated"),
                         fileName);
@@ -1281,6 +1355,9 @@ namespace NAnt.DotNet.Tasks {
             alink.Culture = culture;
             alink.OutputTarget = "lib";
             alink.TemplateFile = OutputFile;
+            alink.KeyFile = KeyFile;
+            alink.KeyContainer = KeyContainer;
+            alink.DelaySign = DelaySign;
 
             // add resource files using the Arguments collection.
             foreach (string manifestname in resourceFiles.Keys) {

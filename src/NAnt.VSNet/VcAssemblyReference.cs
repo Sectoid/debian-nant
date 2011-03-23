@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Globalization;
@@ -90,7 +90,8 @@ namespace NAnt.VSNet {
                 // TODO: support locating assemblies in VCConfiguration.ReferencesPath,
                 // but for now just remove it from reference filename and
                 // search all assembly folders
-                assemblyFileName = assemblyFileName.Replace("{ReferencesPath}\\", "");
+                assemblyFileName = assemblyFileName.Replace("{ReferencesPath}\\",
+                    string.Empty);
             }
 
             // 1. The RelativePath might be fully qualified (after macro expansion)
@@ -147,9 +148,9 @@ namespace NAnt.VSNet {
 
         /// <summary>
         /// Is called each time a regular expression match is found during a 
-        /// <see cref="Regex.Replace(string, MatchEvaluator)" /> operation.
+        /// <see cref="M:Regex.Replace(string, MatchEvaluator)" /> operation.
         /// </summary>
-        /// <param name="m">The <see cref="Match" /> resulting from a single regular expression match during a <see cref="Regex.Replace(string, MatchEvaluator)" />.</param>
+        /// <param name="m">The <see cref="Match" /> resulting from a single regular expression match during a <see cref="M:Regex.Replace(string, MatchEvaluator)" />.</param>
         /// <returns>
         /// The expanded <see cref="Match" />.
         /// </returns>

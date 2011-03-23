@@ -17,7 +17,7 @@
 //
 // Jay Turpin (jayturpin@hotmail.com)
 // Gerry Shaw (gerry_shaw@yahoo.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Globalization;
@@ -72,10 +72,10 @@ namespace NAnt.Core.Tasks {
     public class MailTask : Task {
         #region Private Instance Fields
 
-        private string _from = null;
-        private string _toList = null;
-        private string _ccList = null;
-        private string _bccList = null;
+        private string _from;
+        private string _toList;
+        private string _ccList;
+        private string _bccList;
         private string _mailHost = "localhost";
         private string _subject = "";
         private string _message = "";
@@ -191,8 +191,7 @@ namespace NAnt.Core.Tasks {
         /// <summary>
         /// Initializes task and ensures the supplied attributes are valid.
         /// </summary>
-        /// <param name="taskNode">Xml node used to define this task instance.</param>
-        protected override void InitializeTask(System.Xml.XmlNode taskNode) {
+        protected override void Initialize() {
             if (StringUtils.IsNullOrEmpty(ToList) && StringUtils.IsNullOrEmpty(CcList) && StringUtils.IsNullOrEmpty(BccList)) {
                 throw new BuildException("There must be at least one name in" 
                     + " the \"tolist\", \"cclist\" or \"bcclist\" attributes"

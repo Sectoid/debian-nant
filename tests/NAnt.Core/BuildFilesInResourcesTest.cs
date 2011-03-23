@@ -20,7 +20,9 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 using NUnit.Framework;
 
@@ -32,45 +34,62 @@ namespace Tests.NAnt.Core {
     public class BuildFilesInResourcesTest {
         #region Public Instance Methods
 
+        [SetUp]
+        public void SetUp() {
+            _tempFolder = Path.Combine (Path.GetTempPath (),
+                "Tests.NAnt.Core.BuildFilesInResourcesTest");
+            if (!Directory.Exists (_tempFolder))
+                Directory.CreateDirectory (_tempFolder);
+        }
+
+        [TearDown]
+        public void TearDown() {
+            if (Directory.Exists (_tempFolder))
+                Directory.Delete (_tempFolder, true);
+        }
+
         [Test]
         public void Test_FilesInResources() {
-            foreach (string resName in Assembly.GetExecutingAssembly().GetManifestResourceNames()){
-                if (resName.StartsWith("XML_.Build.Files")) {
-                    TextReader file = new StreamReader(Assembly.GetExecutingAssembly().GetManifestResourceStream(resName));
-                    bool success = false;                    
-                    string stuff = null;
+            string buildFile = Path.Combine (_tempFolder, "default.build");
 
-                    try {
-                        System.Xml.XmlDocument doc = new System.Xml.XmlDocument();
-                        doc.LoadXml(file.ReadToEnd());
-                        Project p = new Project(doc, Level.Info, 0);
-                        stuff = BuildTestBase.ExecuteProject(p);
-                        success = true;
-                    } catch(Exception){
-                    } finally {
-                        if (resName.IndexOf(".Invalid.") > 0){
-                            if(!success) stuff = "expected a failure:" + stuff;
-                            success = !success;
+            foreach (string resName in Assembly.GetExecutingAssembly().GetManifestResourceNames()) {
+                if (!resName.StartsWith("XML_.Build.Files")) {
+                    continue;
+                }
+
+                using (FileStream fs = File.Open (buildFile, FileMode.Create, FileAccess.ReadWrite, FileShare.Read)) {
+                    byte[] buffer = new byte[8192];
+
+                    Stream rs = Assembly.GetExecutingAssembly().GetManifestResourceStream(resName);
+                    while (true) {
+                        int bytesRead = rs.Read(buffer, 0, buffer.Length);
+                        if (bytesRead == 0) {
+                            break;
                         }
-
-                        Assert.IsTrue(success, resName + " " + stuff);
+                        fs.Write(buffer, 0, bytesRead);
                     }
+                }
+
+                bool expectSuccess = (resName.IndexOf(".Valid.") > 0);
+
+                try {
+                    XmlDocument doc = new XmlDocument();
+                    doc.Load(buildFile);
+                    Project p = new Project(doc, Level.Info, 0);
+                    string output = BuildTestBase.ExecuteProject(p);
+                    Assert.IsTrue (expectSuccess, "#1: " + resName + " " + output);
+                } catch (Exception ex) {
+                    Assert.IsFalse (expectSuccess, "#2: " +resName + " " + ex.ToString());
                 }
             }
         }
 
         #endregion Public Instance Methods
 
-        #region Protected Instance Methods
+        #region Private Instance Fields
 
-        [SetUp]
-        protected void SetUp() {
-        }
+        private string _tempFolder;
 
-        [TearDown]
-        protected void TearDown() {
-        }
-
-        #endregion Protected Instance Methods
+        #endregion Private Instance Fields
     }
 }

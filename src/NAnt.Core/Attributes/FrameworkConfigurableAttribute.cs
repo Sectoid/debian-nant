@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 
@@ -109,7 +109,7 @@ namespace NAnt.Core.Attributes {
         #region Private Instance Fields
 
         private string _name;
-        private bool _required = false;
+        private bool _required;
         private bool _expandProperties = true;
 
         #endregion Private Instance Fields

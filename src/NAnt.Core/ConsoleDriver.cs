@@ -18,9 +18,10 @@
 // Gerry Shaw (gerry_shaw@yahoo.com)
 // Scott Hernandez (ScottHernandez@hotmail.com)
 // William E. Caputo (wecaputo@thoughtworks.com | logosity@yahoo.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
+using System.Collections;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
@@ -133,10 +134,29 @@ namespace NAnt.Core {
                 project.Properties.AddReadOnly(Project.NAntPropertyLocation, Path.GetDirectoryName(ass.Location));
 
                 if (cmdlineOptions.TargetFramework != null) {
-                    FrameworkInfo frameworkInfo = project.Frameworks[cmdlineOptions.TargetFramework];
+                    FrameworkInfo framework = project.Frameworks[cmdlineOptions.TargetFramework];
 
-                    if (frameworkInfo != null) {
-                        project.TargetFramework = frameworkInfo; 
+                    if (framework != null) {
+                        try {
+                            framework.Validate();
+                            project.TargetFramework = framework;
+                        } catch (Exception ex) {
+                            // write message of exception to console
+                            WriteException(ex);
+                            // output full stacktrace when NAnt is started in debug mode
+                            if (Level.Debug >= projectThreshold) {
+                                // insert empty line
+                                Console.Error.WriteLine();
+                                // output header
+                                Console.Error.WriteLine("Stacktrace:");
+                                // insert empty line
+                                Console.Error.WriteLine();
+                                // output full stacktrace
+                                Console.Error.WriteLine(ex.ToString());
+                            }
+                            // signal error
+                            return 1;
+                        }
                     } else {
                         Console.Error.WriteLine("Invalid framework '{0}' specified.", 
                             cmdlineOptions.TargetFramework);
@@ -144,15 +164,19 @@ namespace NAnt.Core {
                         // insert empty line
                         Console.Error.WriteLine();
 
-                        if (project.Frameworks.Count == 0) {
+                        FrameworkInfo[] installedFrameworks = project.GetFrameworks(
+                            FrameworkTypes.Installed);
+
+                        if (installedFrameworks.Length == 0) {
                             Console.Error.WriteLine("There are no supported frameworks available on your system.");
                         } else {
                             Console.Error.WriteLine("Possible values include:");
                             // insert empty line
                             Console.Error.WriteLine();
 
-                            foreach (string framework in project.Frameworks.Keys) {
-                                Console.Error.WriteLine(" {0} ({1})", framework, project.Frameworks[framework].Description);
+                            foreach (FrameworkInfo fi in installedFrameworks) {
+                                Console.Error.WriteLine("{0} ({1})",
+                                    fi.Name, fi.Description);
                             }
                         }
                         // signal error
@@ -177,22 +201,8 @@ namespace NAnt.Core {
                     // insert empty line
                     Console.Error.WriteLine();
                 }
-                // Write message of exception to console
-                Console.Error.WriteLine(ex.Message);
-                // get first nested exception
-                Exception nestedException = ex.InnerException;
-                // set initial indentation level for the nested exceptions
-                int exceptionIndentationLevel = 0;
-                while (nestedException != null && !StringUtils.IsNullOrEmpty(nestedException.Message)) {
-                    // indent exception message with 4 extra spaces 
-                    // (for each nesting level)
-                    exceptionIndentationLevel += 4;
-                    // output exception message
-                    Console.Error.WriteLine(new string(' ', exceptionIndentationLevel) 
-                        + nestedException.Message);
-                    // move on to next inner exception
-                    nestedException = nestedException.InnerException;
-                }
+                // write message of exception to console
+                WriteException(ex);
                 // output full stacktrace when NAnt is started in debug mode
                 if (Level.Debug >= projectThreshold) {
                     // insert empty line
@@ -217,22 +227,8 @@ namespace NAnt.Core {
                 Console.Error.WriteLine("BUILD FAILED");
                 // insert empty line
                 Console.Error.WriteLine();
-                // output message of exception
-                Console.Error.WriteLine(ex.Message);
-                // get first nested exception
-                Exception nestedException = ex.InnerException;
-                // set initial indentation level for the nested exceptions
-                int exceptionIndentationLevel = 0;
-                while (nestedException != null && !StringUtils.IsNullOrEmpty(nestedException.Message)) {
-                    // indent exception message with 4 extra spaces 
-                    // (for each nesting level)
-                    exceptionIndentationLevel += 4;
-                    // output exception message
-                    Console.Error.WriteLine(new string(' ', exceptionIndentationLevel) 
-                        + nestedException.Message);
-                    // move on to next inner exception
-                    nestedException = nestedException.InnerException;
-                }
+                // write message of exception to console
+                WriteException(ex);
                 // output full stacktrace when NAnt is started in debug mode
                 if (Level.Debug >= projectThreshold) {
                     // insert empty line
@@ -263,8 +259,8 @@ namespace NAnt.Core {
                 Console.Error.WriteLine("INTERNAL ERROR");
                 // insert empty line
                 Console.Error.WriteLine();
-                // output message of exception
-                Console.Error.WriteLine(ex.Message);
+                // write message of exception to console
+                WriteException(ex);
                 // output full stacktrace when NAnt is started in verbose mode
                 if (Level.Verbose >= projectThreshold) {
                     // insert empty line
@@ -556,6 +552,38 @@ namespace NAnt.Core {
             Console.WriteLine("A file ending in .build will be used if no buildfile is specified.");
         }
 
+        /// <summary>
+        /// Write the message of the specified <see cref="Exception" /> and
+        /// the inner exceptions to <see cref="Console.Error" />.
+        /// </summary>
+        /// <param name="cause">The <see cref="Exception" /> to write to <see cref="Console.Error" />.</param>
+        private static void WriteException(Exception cause) {
+            int indentLevel = 0;
+            while (cause != null && !StringUtils.IsNullOrEmpty(cause.Message)) {
+                if (!StringUtils.IsNullOrEmpty(cause.Message)) {
+                    if (indentLevel > 0) {
+                        // insert empty line
+                        Console.Error.WriteLine();
+                    }
+
+                    // indent exception message with extra spaces (for each
+                    // nesting level)
+                    Console.Error.WriteLine(new string(' ', indentLevel * INDENTATION_SIZE) 
+                        + cause.Message);
+                    // increase indentation level
+                    indentLevel++;
+                }
+                // move on to next inner exception
+                cause = cause.InnerException;
+            }
+        }
+
         #endregion Private Static Methods
+
+        #region Private Static Fields
+
+        private const int INDENTATION_SIZE = 4;
+
+        #endregion Private Static Fields
     }
 }

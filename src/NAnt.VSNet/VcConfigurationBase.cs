@@ -17,7 +17,7 @@
 //
 // Dmitry Jemerov <yole@yole.ru>
 // Scott Ford (sford@RJKTECH.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 // Hani Atassi (haniatassi@users.sourceforge.net)
 
 using System;
@@ -203,10 +203,10 @@ namespace NAnt.VSNet {
                     if (index < _name.Length) {
                         return _name.Substring(index + 1, _name.Length - 1 - index);
                     } else {
-                        return "";
+                        return string.Empty;
                     }
                 } else {
-                    return "";
+                    return string.Empty;
                 }
             }
         }
@@ -330,6 +330,7 @@ namespace NAnt.VSNet {
         #region Internal Static Fields
 
         internal const string CLCompilerTool = "VCCLCompilerTool";
+        internal const string CustomBuildTool = "VCCustomBuildTool";
         internal const string LinkerTool = "VCLinkerTool";
         internal const string LibTool = "VCLibrarianTool";
         internal const string ResourceCompilerTool = "VCResourceCompilerTool";

@@ -25,7 +25,9 @@ using Microsoft.Win32;
 using NAnt.Core;
 using NAnt.Core.Attributes;
 
+#if (!NET_4_0)
 [assembly: RegistryPermissionAttribute(SecurityAction.RequestMinimum , Unrestricted=true)]
+#endif
 namespace NAnt.Win32.Tasks {
     /// <summary>
     /// Reads a value or set of values from the Windows Registry into one or 
@@ -49,10 +51,10 @@ namespace NAnt.Win32.Tasks {
     public class ReadRegistryTask : Task {
         #region Private Instance Fields
 
-        private string _propName = null;
-        private string _propPrefix = null;
-        private string _regKey = null;
-        private string _regKeyValueName = null;
+        private string _propName;
+        private string _propPrefix;
+        private string _regKey;
+        private string _regKeyValueName;
         private RegistryHive[] _regHive = {RegistryHive.LocalMachine};
         private string _regHiveString = RegistryHive.LocalMachine.ToString();
 

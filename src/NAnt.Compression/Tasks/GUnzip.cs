@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System.Globalization;
 using System.IO;
@@ -102,11 +102,9 @@ namespace NAnt.Compression.Tasks {
                 throw new BuildException(string.Format(CultureInfo.InvariantCulture,
                     "Failed to expand '{0}' to '{1}'.", SrcFile.FullName, 
                     DestFile.FullName), Location, ex);
-            /* Uncomment when upgrade to next #ziplib release is done
             } catch (GZipException ex) {
                 throw new BuildException(string.Format(CultureInfo.InvariantCulture,
                     "Invalid gzip file '{0}'.", SrcFile.FullName), Location, ex);
-            */
             }
         }
 

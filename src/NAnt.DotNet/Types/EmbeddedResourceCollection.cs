@@ -15,11 +15,10 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
-//using System.Text;
 
 using NAnt.Core;
 using NAnt.Core.Attributes;
@@ -117,7 +116,7 @@ namespace NAnt.DotNet.Types {
         /// Inserts a <see cref="EmbeddedResource" /> into the collection at the
         /// specified index.
         /// </summary>
-        /// <param name="index">The zero-based index at which <paramref name="item"/> should be inserted.</param>
+        /// <param name="index">The zero-based index at which <paramref name="value"/> should be inserted.</param>
         /// <param name="value">The <see cref="EmbeddedResource"/> to insert.</param>
         void IList.Insert(int index, object value) {
             ValidateType(value);
@@ -206,7 +205,7 @@ namespace NAnt.DotNet.Types {
         /// Inserts a <see cref="EmbeddedResource" /> into the collection at the
         /// specified index.
         /// </summary>
-        /// <param name="index">The zero-based index at which <paramref name="item"/> should be inserted.</param>
+        /// <param name="index">The zero-based index at which <paramref name="value"/> should be inserted.</param>
         /// <param name="value">The <see cref="EmbeddedResource"/> to insert.</param>
         public void Insert(int index, EmbeddedResource value) {
             List.Insert(index, value);

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" ?>
+<?xml version="1.0" ?>
 <!--
 // NAnt - A .NET build tool
 // Copyright (C) 2001-2003 Gerry Shaw
@@ -49,7 +49,7 @@
         <value>Error creating logger of type '{0}'.</value>
     </data>
     <data name="NA1004">      
-        <value>Could not find a '{0}' file in '{1}'</value>       
+        <value>Could not find a '{0}' file in '{1}'</value> 
     </data>
     <data name="NA1005">
         <value>Error creating output log file '{0}'.</value>
@@ -88,7 +88,7 @@
         <value>'{0}' is a required framework configuration setting for &lt;{1} ... /&gt;.</value>
     </data>
     <data name="NA1016">
-        <value>BuildElementArrayAttribute cannot be applied to read-only array-based properties. '{0}' element for &lt;{1} .../&gt;.</value>        
+        <value>BuildElementArrayAttribute cannot be applied to read-only array-based properties. '{0}' element for &lt;{1} .../&gt;.</value>
     </data>
     <data name="NA1018">
         <value>BuildElementArrayAttribute cannot be applied to read-only property with  uninitialized collection-based value '{0}' element for &lt;{1} ... /&gt;.</value>
@@ -97,7 +97,7 @@
         <value>BuildElementArrayAttribute cannot be applied to write-only collection-based properties. '{0}' element for &gt;{1} .../&lt;.</value>
     </data>
     <data name="NA1020">
-        <value>Child element type {0} cannot be added to collection {1} for underlying property {2} for &lt;{3} ... /&gt;.</value>      
+        <value>Child element type {0} cannot be added to collection {1} for underlying property {2} for &lt;{3} ... /&gt;.</value>
     </data>
     <data name="NA1021"> <!-- 3 times -->
         <value>There must be a least one '{0}' element for &lt;{1} .../&gt;.</value>
@@ -124,10 +124,10 @@
         <value>Use BuildElementArrayAttributes to have array like elements!  There must be at most one '{0}' element for &lt;{1} ... /&gt;.</value>
     </data>
     <data name="NA1031">
-        <value>BuildElementArrayAttribute and BuildElementCollection attributes must be applied to array or collection-based types '{0}' element for &lt;{1} .../&gt;.</value>        
+        <value>BuildElementArrayAttribute and BuildElementCollection attributes must be applied to array or collection-based types '{0}' element for &lt;{1} .../&gt;.</value>
     </data>
     <data name="NA1032">
-        <value>The &lt;{0}&gt; type does not support the nested build element "{1}".</value>       
+        <value>&lt;{0}&gt; does not support the nested build element "{1}".</value>
     </data>
     <data name="NA1033">
         <value>'{0}' is a required attribute of &lt;{1} ... /&gt;.</value>
@@ -201,13 +201,10 @@
         <value>Attempt to divide by zero.</value>
     </data>
     <data name="NA1044">
-        <value>Too few actual parameters for '{0}'.</value>
+        <value>No overload for '{0}' takes '{1}' arguments.</value>
     </data>
     <data name="NA1045">
         <value>Cannot convert {0} to '{1}' (value was null).</value>
-    </data>
-    <data name="NA1046">
-        <value>Too many actual parameters for '{0}'.</value>
     </data>
     <data name="NA1047">
         <value>Operator '%' cannot be applied to arguments of type '{0}' and '{1}'.</value>
@@ -234,7 +231,7 @@
     <!--Messages From: \NAnt.Core/ExpressionParseException.cs-->  
     <!--Messages From: \NAnt.Core/ExpressionTokenizer.cs--> 
     <data name="NA1182">
-        <value>Identifier cannot end with a dash: {0}</value>
+        <value>Identifier cannot end with a dash or a dot: {0}</value>
     </data>
     <!--Messages From: \NAnt.Core/FrameworkInfo.cs-->
     <data name="NA1054">
@@ -720,14 +717,6 @@
     <data name="NA1180">
         <value>Task not allowed in targets.  Must be at project level.</value>
     </data>    
-    <data name="NA1181">
-        <value>The default targetframework '{0}' is invalid and has not been loaded : {1}.</value>
-    </data>     
-    <data name="NA1182">
-        <value>Framework '{0}' is invalid and has not been loaded : {1}.</value>
-    </data>
-    
-        
     
     <!--Messages From: \NAnt.Core/Util/DefaultCommandLineArgumentAttribute.cs-->
     <!--Messages From: \NAnt.Core/Util/FileUtils.cs-->

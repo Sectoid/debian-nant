@@ -30,6 +30,14 @@ namespace NAnt.Core.Tasks {
     /// <summary>
     /// Executes a system command.
     /// </summary>
+    /// <remarks>
+    ///   <para>
+    ///   Use of nested <see cref="ExternalProgramBase.Arguments" /> element(s)
+    ///   is advised over the <see cref="CommandLineArguments"/> parameter, as
+    ///   it supports automatic quoting and can resolve relative to absolute
+    ///    paths.
+    ///   </para>
+    /// </remarks>
     /// <example>
     ///   <para>Ping "nant.sourceforge.net".</para>
     ///   <code>
@@ -86,8 +94,8 @@ namespace NAnt.Core.Tasks {
         private FileInfo _output;
         private bool _outputAppend;
         private EnvironmentSet _environmentSet = new EnvironmentSet();
-        private bool _useRuntimeEngine;
         private string _resultProperty;
+        private string _processIdProperty;
 
         #endregion Private Instance Fields
 
@@ -108,7 +116,10 @@ namespace NAnt.Core.Tasks {
         }
 
         /// <summary>
-        /// The command-line arguments for the program.
+        /// The command-line arguments for the program.  These will be
+        /// passed as is to the external program. When quoting is necessary,
+        /// these must be explictly set as part of the value. Consider using
+        /// nested <see cref="ExternalProgramBase.Arguments" /> elements instead.
         /// </summary>
         [TaskAttribute("commandline")]
         public string CommandLineArguments {
@@ -179,10 +190,25 @@ namespace NAnt.Core.Tasks {
         /// using a runtime engine; otherwise, <see langword="false" />.
         /// </value>
         [TaskAttribute("useruntimeengine")]
-        [FrameworkConfigurable("useruntimeengine")]
+        [Obsolete("Use the managed attribute and Managed property instead.", false)]
         public override bool UseRuntimeEngine {
-            get { return _useRuntimeEngine; }
-            set { _useRuntimeEngine = value; }
+            get { return base.UseRuntimeEngine ; }
+            set { base.UseRuntimeEngine = value; }
+        }
+
+        /// <summary>
+        /// Specifies whether the external program is a managed application
+        /// which should be executed using a runtime engine, if configured. 
+        /// The default is <see langword="false" />.
+        /// </summary>
+        /// <value>
+        /// <see langword="true" /> if the external program should be executed 
+        /// using a runtime engine; otherwise, <see langword="false" />.
+        /// </value>
+        [TaskAttribute("managed")]
+        public override ManagedExecution Managed {
+            get { return base.Managed; }
+            set { base.Managed = value; }
         }
 
         /// <summary>
@@ -214,9 +240,9 @@ namespace NAnt.Core.Tasks {
         /// <summary>
         /// Performs additional checks after the task has been initialized.
         /// </summary>
-        /// <param name="taskNode">The <see cref="XmlNode" /> used to initialize the task.</param>
         /// <exception cref="BuildException"><see cref="FileName" /> does not hold a valid file name.</exception>
-        protected override void InitializeTask(XmlNode taskNode) {
+        protected override void Initialize() {
+            base.Initialize();
             try {
                 // just check if program file to execute is a valid file name
                 if (Path.IsPathRooted(FileName)) {
@@ -227,8 +253,6 @@ namespace NAnt.Core.Tasks {
                     ResourceUtils.GetString("NA1117"), 
                     FileName, Name), Location, ex);
             }
-
-            base.InitializeTask(taskNode);
         }
 
         /// <summary>
@@ -271,7 +295,7 @@ namespace NAnt.Core.Tasks {
         /// <remarks>
         /// By default, the standard output is redirected to the console.
         /// </remarks>
-        [TaskAttribute("output", Required=false)]
+        [TaskAttribute("output")]
         public override FileInfo Output {
             get { return _output; }
             set { _output = value; }
@@ -285,10 +309,33 @@ namespace NAnt.Core.Tasks {
         /// <see langword="true" /> if output should be appended to the <see cref="Output" />; 
         /// otherwise, <see langword="false" />.
         /// </value>
-        [TaskAttribute("append", Required=false)]
+        [TaskAttribute("append")]
         public override bool OutputAppend {
             get { return _outputAppend; }
             set { _outputAppend = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the application should be
+        /// spawned. If you spawn an application, its output will not be logged
+        /// by NAnt. The default is <see langword="false" />.
+        /// </summary>
+        [TaskAttribute("spawn")]
+        public override bool Spawn {
+            get { return base.Spawn; }
+            set { base.Spawn = value; }
+        }
+
+        /// <summary>
+        /// The name of a property in which the unique identifier of the spawned
+        /// application should be stored. Only of interest if <see cref="Spawn" />
+        /// is <see langword="true" />.
+        /// </summary>
+        [TaskAttribute("pidproperty")]
+        [StringValidator(AllowEmpty=false)]
+        public string ProcessIdProperty {
+            get { return _processIdProperty; }
+            set { _processIdProperty = value; }
         }
 
         /// <summary>
@@ -298,6 +345,10 @@ namespace NAnt.Core.Tasks {
             base.ExecuteTask();
             if (ResultProperty != null) {
                 Properties[ResultProperty] = base.ExitCode.ToString(
+                    CultureInfo.InvariantCulture);
+            }
+            if (Spawn && ProcessIdProperty != null) {
+                Properties[ProcessIdProperty] = base.ProcessId.ToString(
                     CultureInfo.InvariantCulture);
             }
         }

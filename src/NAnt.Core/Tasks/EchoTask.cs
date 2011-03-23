@@ -21,6 +21,7 @@
 using System;
 using System.IO;
 using System.Globalization;
+using System.Text;
 using System.Xml;
 
 using NAnt.Core.Attributes;
@@ -32,8 +33,9 @@ namespace NAnt.Core.Tasks {
     /// </summary>
     /// <remarks>
     ///   <para>
-    ///   The message can be specified using the <see cref="Message" /> attribute 
-    ///   or as inline content.
+    ///   The message can be specified using the <see cref="Message" /> attribute
+    ///   or as inline content. If neither is included - or the message contains
+    ///   only whitespace - then an empty message will be emitted in the output.
     ///   </para>
     ///   <para>
     ///   Macros in the message will be expanded.
@@ -42,6 +44,10 @@ namespace NAnt.Core.Tasks {
     ///   When writing to a file, the <see cref="MessageLevel" /> attribute is
     ///   ignored.
     ///   </para>
+    ///   <note>
+    ///   Since NAnt 0.86, a newline will no longer be implictly added when
+    ///   writing a message to a file.
+    ///   </note>
     /// </remarks>
     /// <example>
     ///   <para>
@@ -50,6 +56,28 @@ namespace NAnt.Core.Tasks {
     ///   <code>
     ///     <![CDATA[
     /// <echo message="Hello, World!" level="Debug" />
+    ///     ]]>
+    ///   </code>
+    /// </example>
+    /// <example>
+    ///   <para>
+    ///   Writes a two-line message to the build log using inline content.
+    ///   </para>
+    ///   <code>
+    ///     <![CDATA[
+    /// <echo>First line
+    /// Second line</echo>
+    ///     ]]>
+    ///   </code>
+    /// </example>
+    /// <example>
+    ///   <para>
+    ///   Writes a two-line message to the build log using the <see cref="Message" /> attribute.
+    ///   </para>
+    ///   <code>
+    ///     <![CDATA[
+    /// <echo message='First line
+    /// Second line</echo>
     ///     ]]>
     ///   </code>
     /// </example>
@@ -91,12 +119,27 @@ namespace NAnt.Core.Tasks {
         private string _message;
         private string _contents;
         private FileInfo _file;
-        private bool _append = false;
+        private bool _append;
         private Level _messageLevel = Level.Info;
+        private Encoding _encoding;
 
         #endregion Private Instance Fields
 
         #region Public Instance Properties
+
+        /// <summary>
+        /// The encoding to use when writing message to a file. The default is
+        /// UTF-8 encoding without a Byte Order Mark (BOM).
+        /// </summary>
+        [TaskAttribute("encoding")]
+        public Encoding Encoding {
+            get {
+                if (_encoding == null)
+                    return new UTF8Encoding ();
+                return _encoding;
+            }
+            set { _encoding = value; }
+        }
 
         /// <summary>
         /// The message to output.
@@ -105,8 +148,8 @@ namespace NAnt.Core.Tasks {
         public string Message {
             get { return _message; }
             set {
-                if (!StringUtils.IsNullOrEmpty(value)) {
-                    if (!StringUtils.IsNullOrEmpty(Contents)) {
+                if (value != null && value.Trim ().Length > 0) {
+                    if (Contents != null) {
                         throw new ValidationException("Inline content and the message attribute are mutually exclusive in the <echo> task.", Location);
                     } else {
                         _message = value;
@@ -126,8 +169,8 @@ namespace NAnt.Core.Tasks {
         public string Contents {
             get { return _contents; }
             set { 
-                if (!StringUtils.IsNullOrEmpty(value)) {
-                    if (!StringUtils.IsNullOrEmpty(Message)) {
+                if (value != null && value.Trim ().Length > 0) {
+                    if (Message != null) {
                         throw new ValidationException("Inline content and the message attribute are mutually exclusive in the <echo> task.", Location);
                     } else {
                         _contents = value;
@@ -195,13 +238,11 @@ namespace NAnt.Core.Tasks {
                     }
 
                     // write the message to the file
-                    using (StreamWriter writer = new StreamWriter(File.FullName, Append)) {
+                    using (StreamWriter writer = new StreamWriter(File.FullName, Append, Encoding)) {
                         if (!StringUtils.IsNullOrEmpty(Message)) {
-                            writer.WriteLine(Message);
+                            writer.Write(Message);
                         } else if (!StringUtils.IsNullOrEmpty(Contents)) {
-                            writer.WriteLine(Contents);
-                        } else {
-                            writer.WriteLine();
+                            writer.Write(Contents);
                         }
                     }
                 } catch (Exception ex) {
@@ -210,15 +251,22 @@ namespace NAnt.Core.Tasks {
                         Location, ex);
                 }
             } else { // output to build log
-                if (!StringUtils.IsNullOrEmpty(Message)) {
+                if (Message != null) {
                     Log(MessageLevel, Message);
-                } else if (!StringUtils.IsNullOrEmpty(Contents)) {
+                } else if (Contents != null) {
                     Log(MessageLevel, Contents);
                 } else {
                     Log(MessageLevel, string.Empty);
                 }
             }
-        }                        protected override void InitializeTask(XmlNode taskNode) {            Contents = Project.ExpandProperties(taskNode.InnerText, Location);        }
+        }
+
+        protected override void Initialize() {
+            if (XmlNode.ChildNodes.Count == 0)
+                return;
+
+            Contents = Project.ExpandProperties(XmlNode.InnerText, Location);
+        }
 
         #endregion Override implementation of Task
     }

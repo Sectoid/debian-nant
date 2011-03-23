@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.CodeDom.Compiler;
@@ -76,7 +76,7 @@ namespace NAnt.VSNet {
         /// <see langword="true" /> if the reference is managed for the
         /// specified configuration; otherwise, <see langword="false" />.
         /// </returns>
-        public override bool IsManaged(string config) {
+        public override bool IsManaged(Configuration config) {
             return Project.IsManaged(config);            
         }
 

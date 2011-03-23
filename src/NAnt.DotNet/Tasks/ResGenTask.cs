@@ -286,9 +286,6 @@ namespace NAnt.DotNet.Tasks {
         /// <param name="process">The <see cref="Process" /> of which the <see cref="ProcessStartInfo" /> should be updated.</param>
         protected override void PrepareProcess(Process process) {
             if (!SupportsAssemblyReferences) {
-                // use a newly created temporary directory as working directory
-                BaseDirectory = FileUtils.GetTempDirectory();
-
                 // avoid copying the assembly references (and resgen) to a
                 // temporary directory if not necessary
                 if (Assemblies.FileNames.Count == 0 || !RequiresAssemblyReferences) {
@@ -298,6 +295,9 @@ namespace NAnt.DotNet.Tasks {
                     // no further processing required
                     return;
                 }
+
+                // use a newly created temporary directory as working directory
+                BaseDirectory = FileUtils.GetTempDirectory();
 
                 // create instance of Copy task
                 CopyTask ct = new CopyTask();
@@ -343,8 +343,10 @@ namespace NAnt.DotNet.Tasks {
                     ct.CopyFileSet.Includes.Add(file);
                 }
 
-                // copy command line tool to working directory
-                ct.CopyFileSet.Includes.Add(base.ProgramFileName);
+                // copy command line tool (and related files) to working directory, eg.:
+                //      <framework SDK dir>/resgen.exe
+                //      <framework SDK dir>/resgen.exe.manifest
+                ct.CopyFileSet.Includes.Add(base.ProgramFileName + "*");
 
                 // set destination directory
                 ct.ToDirectory = BaseDirectory;
@@ -574,7 +576,7 @@ namespace NAnt.DotNet.Tasks {
         /// </returns>
         /// <remarks>
         /// This check will only be accurate for 1.0 resource file, but the
-        /// 2.0 resx files can only be compiled with a resgen tool that supported
+        /// 2.0 resx files can only be compiled with a resgen tool that supports
         /// assembly references, so this method will not be used anyway.
         /// </remarks>
         private bool ReferencesThirdPartyAssemblies(string resourceFile) {
@@ -680,33 +682,30 @@ namespace NAnt.DotNet.Tasks {
             // first one of the next execution of the resgen tool, then
             // add options to command line
             if (_arguments.Length == 0 || maxCmdLineExceeded) {
+                StringBuilder sb = new StringBuilder ();
+
+                // bug #1415272: first write assembly references, to make sure these
+                // are taken into account when calculating the length of the command
+                // line
+                if (SupportsAssemblyReferences) {
+                    foreach (string assembly in Assemblies.FileNames) {
+                        sb.AppendFormat (CultureInfo.InvariantCulture,
+                            "/r:\"{0}\" ", assembly);
+                    }
+                }
+
                 if (UseSourcePath) {
                     if (SupportsExternalFileReferences) {
-                        cmdLineArg = "/useSourcePath /compile " + cmdLineArg;
+                        sb.Append ("/useSourcePath ");
                     } else {
-                        cmdLineArg = "/compile " + cmdLineArg;
-
                         Log(Level.Warning, ResourceUtils.GetString(
                             "String_ResourceCompilerDoesNotSupportExternalReferences"), 
                             Project.TargetFramework.Description);
                     }
-                } else {
-                    StringBuilder sb = new StringBuilder ();
-
-                    // bug #1415272: first write assembly references, to make sure these
-                    // are taken into account when calculating the length of the command
-                    // line
-                    if (SupportsAssemblyReferences) {
-                        foreach (string assembly in Assemblies.FileNames) {
-                            sb.AppendFormat (CultureInfo.InvariantCulture,
-                                "/r:\"{0}\" ", assembly);
-                        }
-                    }
-                    sb.Append ("/compile ");
-                    sb.Append (cmdLineArg);
-
-                    cmdLineArg = sb.ToString ();
                 }
+                sb.Append ("/compile ");
+                sb.Append (cmdLineArg);
+                cmdLineArg = sb.ToString ();
             }
 
             // if maximum length would have been exceeded by compiling
