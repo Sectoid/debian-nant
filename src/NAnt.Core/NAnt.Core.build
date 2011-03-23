@@ -25,9 +25,11 @@
                 <include name="Resources/**/*" />
             </resources>
             <references>
-                <include name="${build.dir}/bin/log4net.dll"/>
                 <include name="System.Web.dll"/>
             </references>
+            <pkg-references>
+              <package name="log4net"/>
+            </pkg-references>
         </csc>
     </target>
 </project>

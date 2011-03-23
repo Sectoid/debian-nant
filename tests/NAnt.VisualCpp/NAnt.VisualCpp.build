@@ -22,8 +22,10 @@
                 <include name="${build.dir}/bin/NAnt.Core.dll" />
                 <include name="${build.dir}/bin/NAnt.Core.Tests.dll" />
                 <include name="${build.dir}/bin/NAnt.VisualCppTasks.dll" />
-                <include name="${nant::scan-probing-paths('nunit.framework.dll')}" />
             </references>
+            <pkg-references>
+              <package name="nunit"/>
+            </pkg-references>
         </csc>
     </target>
     <target name="test" depends="build" if="${platform::is-windows()}">

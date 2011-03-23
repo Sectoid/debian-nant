@@ -16,11 +16,13 @@
                 <include name="../CommonAssemblyInfo.cs" />
             </sources>
             <references>
-                <include name="${build.dir}/bin/log4net.dll" />
                 <include name="${build.dir}/bin/NAnt.Core.dll" />
-                <include name="${nant::scan-probing-paths(build.dir + '/bin','ICSharpCode.SharpZipLib.dll')}" />
-                <include name="${nant::scan-probing-paths(build.dir + '/bin','ICSharpCode.SharpCvsLib.dll')}" />
+                <include name="ICSharpCode.SharpZipLib.dll" />
+                <include name="ICSharpCode.SharpCvsLib.dll" />
             </references>
+            <pkg-references>
+              <package name="log4net"/>
+            </pkg-references>
             <resources>
                 <include name="*.resx"/>
             </resources>

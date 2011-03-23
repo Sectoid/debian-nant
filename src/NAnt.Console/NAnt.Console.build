@@ -30,10 +30,13 @@
                 <include name="../CommonAssemblyInfo.cs" />
             </sources>
             <references>
-                <include name="${build.dir}/bin/log4net.dll" />
                 <include name="System.Configuration.dll" />
                 <include name="System.Xml.dll" />
             </references>
+            <pkg-references>
+              <package name="log4net"/>
+            </pkg-references>
+
             <resources>
                 <include name="*.resx"/>
             </resources>
