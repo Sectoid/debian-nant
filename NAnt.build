@@ -867,12 +867,13 @@
     </target>
 
     <target name="install-linux" depends="build" if="${platform::is-unix()}">
-        <property name="install.prefix" value="/usr/local" />
+        <property name="install.prefix" value="/usr" />
         <if test="${property::exists('prefix') and string::get-length(prefix) != 0}">
             <property name="install.prefix" value="${prefix}" />
         </if>
         <property name="install.share" value="${path::combine(install.prefix, 'share')}" />
-        <property name="install.nant" value="${path::combine (install.share, 'NAnt')}" />
+        <property name="install.libdir" value="${path::combine(install.prefix, 'lib')}" />
+        <property name="install.nant" value="${path::combine (install.libdir, 'NAnt')}" />
 
         <!-- support staged installs -->
         <property name="install.destdir" value="" />
@@ -890,13 +891,14 @@
         <property name="install.copylocation" value="${install.destdir + install.nant}" />
 
         <!-- perform (staged) install -->
+        <echo message="Using DESTDIR '${install.destdir}'..." />
         <echo message="Installing NAnt to '${install.copylocation}' ..." />
         <copy todir="${install.copylocation}" overwrite="true">
-            <fileset basedir="${build.dir}">
-                <include name="bin/**/*" />
+            <fileset basedir="${path::combine(build.dir, 'bin')}">
+                <include name="*" />
 
-                <exclude name="bin/nant.tests.config" />
-                <exclude name="bin/*.Tests.*" />
+                <exclude name="nant.tests.config" />
+                <exclude name="*.Tests.*" />
             </fileset>
         </copy>
 
@@ -926,7 +928,7 @@
             the wrapper is created
         -->
         <echo file="${wrapper}" append="false">#!/bin/sh${environment::newline()}</echo>
-        <echo file="${wrapper}" append="true">exec ${path::combine(install.prefix, 'bin')}/mono ${path::combine(install.nant, 'bin')}/NAnt.exe "$@"</echo>
+        <echo file="${wrapper}" append="true">exec ${path::combine(install.prefix, 'bin')}/cli ${path::combine(install.nant, 'bin')}/NAnt.exe "$@"</echo>
         <exec program="chmod" commandline="a+x ${path::combine(install.bindir, 'nant')}" />
     </target>
     <target name="rpm" depends="init, build">

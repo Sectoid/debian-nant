@@ -1,7 +1,8 @@
 #NAnt make makefile for *nix
-MONO=mono
-MCS=mcs
+MONO=cli
+MCS=csc
 RESGEN=resgen
+DESTDIR=
 
 ifndef DIRSEP
 ifeq ($(OS),Windows_NT)
@@ -18,13 +19,13 @@ PLATFORM_REFERENCES = \
 endif
 endif
 
-ifeq ($(MONO),mono)
+#ifeq ($(MONO),mono)
 FRAMEWORK_DIR = mono
 DEFINE = MONO
-else
-FRAMEWORK_DIR = net
-DEFINE= NET
-endif
+#else
+#FRAMEWORK_DIR = net
+#DEFINE= NET
+#endif
 
 ifdef TARGET
 TARGET_FRAMEWORK = -t:$(TARGET)
@@ -46,14 +47,14 @@ install: bootstrap
 
 run-test: bootstrap
 	$(NANT) $(TARGET_FRAMEWORK) -f:NAnt.build test
-	
+
 bootstrap/NAnt.exe:
 	$(MCS) -target:exe -define:${DEFINE} -out:bootstrap${DIRSEP}NAnt.exe -r:bootstrap${DIRSEP}log4net.dll \
 		-recurse:src${DIRSEP}NAnt.Console${DIRSEP}*.cs src${DIRSEP}CommonAssemblyInfo.cs
-	
+
 
 bootstrap: setup bootstrap/NAnt.exe bootstrap/NAnt.Core.dll bootstrap/NAnt.DotNetTasks.dll bootstrap/NAnt.CompressionTasks.dll ${PLATFORM_REFERENCES}
-	
+
 
 setup:
 	mkdir -p bootstrap
