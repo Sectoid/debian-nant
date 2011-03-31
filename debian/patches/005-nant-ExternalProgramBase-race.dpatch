@@ -1,33 +1,0 @@
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 005-nant-ExternalProgramBase-race.dpatch by Y Giridhar Appaji Nag <appaji@debian.org>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Fixes threading issue in ExternalProgramBase causing a race in SMP env
-## DP: ExternalProgramBase.cs CVS r1.71, upstream #1733671, Debian #483073
-
-@DPATCH@
-diff -urNad nant-0.85.dfsg1~/src/NAnt.Core/Tasks/ExternalProgramBase.cs nant-0.85.dfsg1/src/NAnt.Core/Tasks/ExternalProgramBase.cs
---- nant-0.85.dfsg1~/src/NAnt.Core/Tasks/ExternalProgramBase.cs	2008-10-15 22:13:06.000000000 +0530
-+++ nant-0.85.dfsg1/src/NAnt.Core/Tasks/ExternalProgramBase.cs	2008-10-15 22:15:35.000000000 +0530
-@@ -452,7 +452,9 @@
-                     }
-                 }
-             }
--            OutputWriter.Flush();
-+            lock (_lockObject) {
-+                OutputWriter.Flush();
-+            }
-         }
-         /// <summary>        /// Reads from the stream until the external program is ended.        /// </summary>
-         private void StreamReaderThread_Error() {
-@@ -476,7 +478,9 @@
-                     }
-                 }
-             }
--            ErrorWriter.Flush();
-+            lock (_lockObject) {
-+                ErrorWriter.Flush();
-+            }
-         }
- 
-         /// <summary>
