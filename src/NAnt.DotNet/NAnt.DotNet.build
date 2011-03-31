@@ -22,8 +22,6 @@
             </sources>
             <references>
                 <include name="${build.dir}/bin/NAnt.Core.dll" />
-                <include name="/usr/lib/ndoc-1.3/NDoc.ExtendedUI.dll" />
-                <include name="/usr/lib/ndoc-1.3/NDoc.Core.dll" />
             </references>
             <resources prefix="NAnt.DotNet" dynamicprefix="true">
                 <include name="Resources/**/*" />
