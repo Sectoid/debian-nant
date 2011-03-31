@@ -31,6 +31,7 @@ using System.Xml.Xsl;
 using System.Xml.XPath;
 
 using NUnit.Core;
+using NUnit.Core.Filters;
 using TestCase = NUnit.Core.TestCase;
 using TestOutput = NUnit.Core.TestOutput;
 using NUnit.Framework;

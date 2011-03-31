@@ -1,13 +1,12 @@
 #!/usr/bin/make -f
 export DH_VERBOSE=1
 
-include /usr/share/dpatch/dpatch.make
 include /usr/share/cli-common/cli.make
 
 MAKE_FLAGS = MONO=/usr/bin/cli MCS=/usr/bin/mono-csc
 
 build: build-stamp
-build-stamp: $(DPATCH_STAMPFN)
+build-stamp:
 	dh build --before dh_auto_build
 	$(MAKE) $(MAKE_FLAGS)
 	dh build --after dh_auto_build
@@ -21,8 +20,7 @@ install-stamp: build
 	rmdir --ignore-fail-on-non-empty --parents debian/nant
 	touch $@
 
-clean: realclean unpatch
-realclean: $(DPATCH_STAMPFN)
+clean:
 	dh clean
 
 binary-arch:

@@ -15,6 +15,8 @@
                 <warning number="1591" />
                 <!-- do not report deprecation warnings -->
                 <warning number="0618" />
+                <!-- do not treat warnings in XML comments as errors -->
+                <warning number="0419" />
             </nowarn>
             <sources failonempty="true">
                 <include name="**/*.cs" />

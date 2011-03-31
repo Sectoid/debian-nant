@@ -147,7 +147,7 @@ namespace NAnt.Compression.Tasks {
 
                 // do not use convert line endings of text files to \n, as this
                 // converts all content to ASCII
-                archive.AsciiTranslate = false;
+                archive.SetAsciiTranslation(false);
 
                 // process all filesets
                 foreach (TarFileSet fileset in TarFileSets) {
@@ -255,7 +255,7 @@ namespace NAnt.Compression.Tasks {
                 }
 
                 // close the tar archive
-                archive.Close();
+                archive.CloseArchive();
             } catch (Exception ex) {
                 // close the tar output stream
                 if (outstream != null) {
@@ -264,7 +264,7 @@ namespace NAnt.Compression.Tasks {
 
                 // close the tar archive
                 if (archive != null) {
-                    archive.Close();
+                    archive.CloseArchive();
                 }
 
                 // delete the (possibly corrupt) tar file

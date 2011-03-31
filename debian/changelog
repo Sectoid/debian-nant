@@ -1,3 +1,12 @@
+nant (0.91nightly20101029-1) unstable; urgency=low
+
+  [ Gleb Golubitsky ]
+  * Non-maintainer upload
+  * New upstream version 0.91nightly20101029
+  * Switching to git for the package infrastuctre handling
+
+ -- Gleb Golubitsky <sectoid@gnolltech.org>  Thu, 31 Mar 2011 18:42:32 +0300
+
 nant (0.85.dfsg1-9) unstable; urgency=low
 
   [ David Paleino ]

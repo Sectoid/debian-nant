@@ -16,7 +16,7 @@
                 <include name="../CommonAssemblyInfo.cs" />
             </sources>
             <references>
-                <include name="${nant::scan-probing-paths('nunit.framework.dll')}" />
+                <include name="${build.dir}/bin/NAnt.Core.dll" />
             </references>
             <pkg-references>
               <package name="nunit"/>

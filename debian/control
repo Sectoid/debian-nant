@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Debian CLI Applications Team <pkg-cli-apps-team@lists.alioth.debian.org>
 Uploaders: Jelmer Vernooij <jelmer@samba.org>,
  David Paleino <dapal@debian.org>
-Build-Depends: debhelper (>= 7), dpatch
+Build-Depends: debhelper (>= 7), git-buildpackage
 Build-Depends-Indep: mono-devel (>= 2.4.3),
  pkg-config,
  cli-common-dev (>= 0.5.7),
@@ -12,8 +12,8 @@ Build-Depends-Indep: mono-devel (>= 2.4.3),
  liblog4net-cil-dev
 Standards-Version: 3.8.3
 Homepage: http://nant.sourceforge.net/
-Vcs-Svn: svn://svn.debian.org/pkg-cli-apps/packages/nant/trunk
-Vcs-Browser: http://svn.debian.org/wsvn/pkg-cli-apps/packages/nant/trunk/
+Vcs-Git: git://github.com/Sectoid/debian-nant.git
+Vcs-Browser: https://github.com/Sectoid/debian-nant
 DM-Upload-Allowed: yes
 
 Package: nant
