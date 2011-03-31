@@ -189,16 +189,16 @@ namespace NAnt.NUnit2.Tasks {
             EventListener listener = new EventCollector(logWriter, logWriter);
 
             foreach (NUnit2Test testElement in Tests) {
-                IFilter categoryFilter = null;
+                ITestFilter categoryFilter = null;
 
                 // include or exclude specific categories
                 string categories = testElement.Categories.Includes.ToString();
                 if (!StringUtils.IsNullOrEmpty(categories)) {
-                    categoryFilter = new CategoryFilter(categories.Split(','), false);
+                    categoryFilter = new CategoryFilter(categories.Split(','));
                 } else {
                     categories = testElement.Categories.Excludes.ToString();
                     if (!StringUtils.IsNullOrEmpty(categories)) {
-                        categoryFilter = new CategoryFilter(categories.Split(','), true);
+                        categoryFilter = new NotFilter(new CategoryFilter(categories.Split(',')));
                     }
                 }
 
@@ -210,27 +210,23 @@ namespace NAnt.NUnit2.Tasks {
                             new FileInfo(testAssembly),
                             testElement.AppConfigFile,
                             testElement.References.FileNames);
+                        TestPackage package = new TestPackage(testAssembly);
 
-                        Test test = null;
-                        if (testElement.TestName != null) {
-                            test = runner.Load(testAssembly, testElement.TestName);
-                        } else {
-                            test = runner.Load(testAssembly);
-                        }
-
-                        if (test == null) {
+                        bool test = runner.Load(package);
+                        if (!test) {
                             Log(Level.Warning, "Assembly \"{0}\" contains no tests.",
                                 testAssembly);
                             continue;
                         }
 
-                        // set category filter
-                        if (categoryFilter != null) {
-                            runner.Filter = categoryFilter;
-                        }
-
                         // run test
-                        TestResult result = runner.Run(listener);
+                        TestResult result;
+
+                        if(categoryFilter != null) {
+                          result = runner.Run(listener, categoryFilter);
+                        } else {
+                          result = runner.Run(listener);
+                        }
 
                         // flush test output to log
                         logWriter.Flush();
@@ -378,7 +374,7 @@ namespace NAnt.NUnit2.Tasks {
         
         #endregion Private Instance Methods
 
-        private class EventCollector : LongLivingMarshalByRefObject, EventListener {
+        private class EventCollector : MarshalByRefObject, EventListener {
             private TextWriter outWriter;
             private TextWriter errorWriter;
             private string currentTestName;
@@ -389,10 +385,10 @@ namespace NAnt.NUnit2.Tasks {
                 this.currentTestName = string.Empty;
              }
 
-            public void RunStarted(Test[] tests) {
+            public void RunStarted(string name, int testcount) {
             }
 
-            public void RunFinished(TestResult[] results) {
+            public void RunFinished(TestResult result) {
             }
 
             public void RunFinished(Exception exception) {
@@ -402,11 +398,11 @@ namespace NAnt.NUnit2.Tasks {
                 currentTestName = string.Empty;
             }
 
-            public void TestStarted(TestCase testCase) {
-                currentTestName = testCase.FullName;
+            public void TestStarted(TestName testName) {
+                currentTestName = testName.FullName;
             }
 
-            public void SuiteStarted(TestSuite suite) {
+            public void SuiteStarted(TestName testName) {
             }
 
             public void SuiteFinished(TestSuiteResult suiteResult) {
