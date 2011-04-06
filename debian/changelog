@@ -1,3 +1,11 @@
+nant (0.91nightly20101029-2) unstable; urgency=low
+
+  [ Gleb Golubitsky ]
+  * Non-maintainer upload
+  * Fixing path to NAnt.exe file in wrapper script
+
+ -- Gleb Golubitsky <sectoid@gnolltech.org>  Wed, 06 Apr 2011 14:38:35 +0300
+
 nant (0.91nightly20101029-1) unstable; urgency=low
 
   [ Gleb Golubitsky ]
