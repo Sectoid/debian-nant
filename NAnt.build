@@ -881,9 +881,9 @@
             <property name="install.destdir" value="${destdir}" />
         </if>
         
-        <property name="install.docdir" value="${install.destdir + path::combine(path::combine(install.share, 'doc'), 'NAnt')}" />
+        <property name="install.docdir" value="${install.destdir + path::combine(path::combine(install.share, 'doc'), 'nant')}" />
         <if test="${property::exists('doc.prefix') and string::get-length(doc.prefix) != 0}">
-            <property name="install.docdir" value="${install.destdir + path::combine(doc.prefix, 'NAnt')}" />
+            <property name="install.docdir" value="${install.destdir + path::combine(doc.prefix, 'nant')}" />
         </if>
         
         <property name="install.bindir" value="${install.destdir + path::combine(install.prefix, 'bin')}" />
