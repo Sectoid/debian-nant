@@ -56,8 +56,8 @@ namespace NAnt.Core.Util {
                 // determine actual input encoding to use. if no explicit input
                 // encoding is specified, we'll use the system's current ANSI
                 // code page
-                Encoding actualInputEncoding = (inputEncoding != null) ? 
-                inputEncoding : Encoding.Default;
+                Encoding actualInputEncoding = (inputEncoding != null) ?
+                    inputEncoding : Encoding.Default;
 
                 // get base filter built on the file's reader. Use a 8k buffer.
                 using (StreamReader sourceFileReader = new StreamReader(sourceFileName, actualInputEncoding, true, 8192)) {
@@ -110,8 +110,8 @@ namespace NAnt.Core.Util {
         /// <summary>
         /// Moves a file filtering its content through the filter chain.
         /// </summary>
-        /// <param name="sourceFileName">The file to move</param>
-        /// <param name="destFileName">The file to move move to</param>
+        /// <param name="sourceFileName">The file to move.</param>
+        /// <param name="destFileName">The file to move move to.</param>
         /// <param name="filterChain">Chain of filters to apply when moving, or <see langword="null" /> is no filters should be applied.</param>
         /// <param name="inputEncoding">The encoding used to read the soure file.</param>
         /// <param name="outputEncoding">The encoding used to write the destination file.</param>
@@ -124,6 +124,44 @@ namespace NAnt.Core.Util {
                 CopyFile(sourceFileName, destFileName, filterChain, inputEncoding, outputEncoding);
                 File.Delete(sourceFileName);
             }
+        }
+
+        /// <summary>
+        /// Reads a file filtering its content through the filter chain.
+        /// </summary>
+        /// <param name="fileName">The file to read.</param>
+        /// <param name="filterChain">Chain of filters to apply when reading, or <see langword="null" /> is no filters should be applied.</param>
+        /// <param name="inputEncoding">The encoding used to read the file.</param>
+        /// <remarks>
+        /// If <paramref name="inputEncoding" /> is <see langword="null" />,
+        /// then the system's ANSI code page will be used to read the file.
+        /// </remarks>
+        public static string ReadFile(string fileName, FilterChain filterChain, Encoding inputEncoding) {
+            string content = null;
+
+            // determine character encoding to use
+            Encoding encoding = (inputEncoding != null) ? inputEncoding : Encoding.Default;
+
+            // read file
+            using (StreamReader sr = new StreamReader(fileName, encoding, true)) {
+                if (filterChain == null || filterChain.Filters.Count == 0) {
+                    content = sr.ReadToEnd();
+                } else {
+                    Filter baseFilter = filterChain.GetBaseFilter(
+                        new PhysicalTextReader(sr));
+
+                    StringWriter sw = new StringWriter();
+                    while (true) {
+                        int character = baseFilter.Read();
+                        if (character == -1)
+                            break;
+                        sw.Write((char) character);
+                    }
+                    content = sw.ToString();
+                }
+            }
+
+            return content;
         }
 
         /// <summary>
@@ -308,6 +346,58 @@ namespace NAnt.Core.Util {
             } else {
                 return Environment.GetEnvironmentVariable("USERPROFILE");
             }
+        }
+
+        /// <summary>
+        /// Scans a list of directories for the specified filename.
+        /// </summary>
+        /// <param name="directories">The list of directories to search.</param>
+        /// <param name="fileName">The name of the file to look for.</param>
+        /// <param name="recursive">Specifies whether the directory should be searched recursively.</param>
+        /// <remarks>
+        /// The directories are scanned in the order in which they are defined.
+        /// </remarks>
+        /// <returns>
+        /// The absolute path to the specified file, or null if the file was
+        /// not found.
+        /// </returns>
+        public static string ResolveFile(string[] directories, string fileName, bool recursive) {
+            if (directories == null)
+                throw new ArgumentNullException("directories");
+            if (fileName == null)
+                throw new ArgumentNullException("fileName");
+
+            string resolvedFile = null;
+
+            foreach (string directory in directories) {
+                if (!Directory.Exists(directory))
+                    continue;
+
+                resolvedFile = ScanDirectory (directory, fileName, recursive);
+                if (resolvedFile != null)
+                    break;
+            }
+
+            return resolvedFile;
+        }
+
+        private static string ScanDirectory(string directory, string fileName, bool recursive) {
+            string absolutePath = Path.Combine(directory, fileName);
+            if (File.Exists(absolutePath))
+                return absolutePath;
+
+            if (!recursive)
+                return null;
+
+            string[] subDirs = Directory.GetDirectories(directory);
+            foreach (string subDir in subDirs) {
+                absolutePath = ScanDirectory (Path.Combine (directory, subDir),
+                    fileName, recursive);
+                if (absolutePath != null)
+                    return absolutePath;
+            }
+
+            return null;
         }
 
         #endregion Public Static Methods

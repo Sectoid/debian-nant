@@ -17,7 +17,7 @@
 //
 // Ian MacLean (ian@maclean.ms)
 // Gerry Shaw (gerry_shaw@yahoo.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.ComponentModel;
@@ -59,12 +59,13 @@ namespace NDoc.Documenter.NAnt {
             ShowMissingReturns = false;
             ShowMissingSummaries = false;
             ShowMissingValues = false;
-            DocumentAttributes = true; 
+            DocumentAttributes = true;
             DocumentEmptyNamespaces = false;
-            DocumentInternals = true;
-            DocumentPrivates = true;
+            DocumentInternals = false;
+            DocumentPrivates = false;
             DocumentProtected = true;
             SkipNamespacesWithoutSummaries = false;
+            EditorBrowsableFilter = EditorBrowsableFilterLevel.HideAdvanced;
         }
 
         #endregion Public Instance Constructors

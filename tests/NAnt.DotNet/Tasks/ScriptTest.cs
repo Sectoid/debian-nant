@@ -79,34 +79,34 @@ namespace Tests.NAnt.Core.Tasks {
         public void Test_Tasks() {
             const string _xml = @"
                 <project name=""customtasks"">
-	                <script language=""c#"">
-		                <code><![CDATA[
-			                [TaskName(""testtask1"")]
-			                public class TestTask1: Task
-			                {
-				                protected override void ExecuteTask()
-				                {
-					                Log(Level.Info, ""Message from testtask1."");
-				                }
-			                }
-		                ]]></code>
-	                </script>
+                    <script language=""c#"">
+                        <code><![CDATA[
+                            [TaskName(""testtask1"")]
+                            public class TestTask1: Task
+                            {
+                                protected override void ExecuteTask()
+                                {
+                                    Log(Level.Info, ""Message from testtask1."");
+                                }
+                            }
+                        ]]></code>
+                    </script>
 
-	                <script language=""c#"">
-		                <code><![CDATA[
-			                [TaskName(""testtask2"")]
-			                public class TestTask2: Task
-			                {
-				                protected override void ExecuteTask()
-				                {
-					                Log(Level.Info, ""Message from testtask2."");
-				                }
-			                }
-		                ]]></code>
-	                </script>
+                    <script language=""c#"">
+                        <code><![CDATA[
+                            [TaskName(""testtask2"")]
+                            public class TestTask2: Task
+                            {
+                                protected override void ExecuteTask()
+                                {
+                                    Log(Level.Info, ""Message from testtask2."");
+                                }
+                            }
+                        ]]></code>
+                    </script>
 
-	                <testtask1 />
-	                <testtask2 />
+                    <testtask1 />
+                    <testtask2 />
                 </project>";
             RunBuild(_xml);
         }
@@ -140,14 +140,54 @@ namespace Tests.NAnt.Core.Tasks {
                 </project>";
             Project project = CreateFilebasedProject(_xml);
             string result = ExecuteProject(project);
-            Assert.IsNotNull(TypeFactory.LookupFunction("script::test-func", project),
-                "Function script should have defined a new custom function #1." + Environment.NewLine + result);
-            Assert.IsNotNull(TypeFactory.LookupFunction("whatever::test", project),
-                "Function script should have defined a new custom function #2." + Environment.NewLine + result);
             Assert.IsTrue(result.IndexOf("some result") != -1,
                 "Function script should written something #1." + Environment.NewLine + result);
             Assert.IsTrue(result.IndexOf("some other result") != -1,
                 "Function script should written something #2." + Environment.NewLine + result);
+        }
+
+        [Test]
+        public void NamespaceImports () {
+            string xml = @"
+                <project>
+                    <script language='C#'>
+                        <imports>
+                            <import namespace='System.Xml.Schema' />
+                        </imports>
+                        <references>
+                            <include name='System.Xml.dll' />
+                        </references>
+                        <code>
+                            <![CDATA[
+                                public static void ScriptMain(Project project) {
+                                    // ensure System.Collections namespace is imported
+                                    ArrayList list = new ArrayList ();
+                                    if (list == null) {
+                                        // avoid compiler warning
+                                    }
+
+                                    // ensure System.IO namespace is imported
+                                    MemoryStream ms = new MemoryStream ();
+                                    if (ms == null) {
+                                        // avoid compiler warning
+                                    }
+
+                                    // ensure System.Text namespace is imported
+                                    StringBuilder sb = new StringBuilder ();
+                                    if (sb == null) {
+                                        // avoid compiler warning
+                                    }
+
+                                    XmlSchemaType stype = new XmlSchemaType ();
+                                    project.Properties[""schema.type""] = stype.GetType ().FullName;
+                                }
+                            ]]>
+                        </code>
+                    </script>
+                    <fail unless=""${schema.type=='System.Xml.Schema.XmlSchemaType'}"" />
+                </project>";
+
+            RunBuild(xml);
         }
 
         [Test]

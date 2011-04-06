@@ -18,6 +18,7 @@
 // Jaroslaw Kowalski (jkowalski@users.sourceforge.net)
 
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -25,65 +26,73 @@ namespace NAnt.Core {
     [Serializable()]
     public class PlatformHelper {
         public static readonly bool IsMono;
+        [Obsolete ("Use IsWindows instead.")]
         public static readonly bool IsWin32;
         public static readonly bool IsUnix;
-        public static readonly bool PInvokeOK;
-        
+
         static PlatformHelper() {
             // check a class in mscorlib to determine if we're running on Mono
             if (Type.GetType("System.MonoType", false) != null) {
                 // we're on Mono
                 IsMono = true;
             }
-            
-            PlatformID platformID = Environment.OSVersion.Platform;
 
-            if (platformID == PlatformID.Win32NT || platformID == PlatformID.Win32Windows) {
-                IsWin32 = true;
-            }
-
-            // check for (non-)Unix platforms - see FAQ for more details
-            // http://www.mono-project.com/FAQ:_Technical#How_to_detect_the_execution_platform_.3F
-            int platform = (int) Environment.OSVersion.Platform;
-            if (platform == 4 || platform == 128) {
+            int p = (int) Environment.OSVersion.Platform;
+            if ((p == 4) || (p == 6) || (p == 128))
                 IsUnix = true;
-            }
 
-            if (IsWin32 && !IsMono) {
-                PInvokeOK = true;
-            }
+            IsWin32 = !IsUnix;
         }
 
-        public static bool IsVolumeCaseSensitive(string path) {  
-            if (PInvokeOK) {
-                StringBuilder VolLabel = new StringBuilder(256);    // Label
-                UInt32 VolFlags = new UInt32();
-                StringBuilder FSName = new StringBuilder(256);  // File System Name
-                UInt32 SerNum = 0;
-                UInt32 MaxCompLen = 0;
-
-                PInvokeHelper.GetVolumeInformationWrapper(path, 
-                    VolLabel, 
-                    (UInt32) VolLabel.Capacity, 
-                    ref SerNum, 
-                    ref MaxCompLen, 
-                    ref VolFlags, 
-                    FSName, 
-                    (UInt32) FSName.Capacity);
-
-                return (((VolumeFlags) VolFlags) & VolumeFlags.CaseSensitive) == VolumeFlags.CaseSensitive;
-            }
+        public static bool IsVolumeCaseSensitive(string path) {
+            // GetVolumeInformation is useless, since it marks NTFS drives as
+            // case-sensitive and provides no information for non-root
+            // directories.
+            // 
+            // This gave us the impression that it worked since a zero VolFlags
+            // would be considered as case-insensitive.
+            // 
+            // For now, we just return false on Unix and true in all other
+            // cases.
 
             return IsUnix;
         }
-        
-        private class PInvokeHelper {
-            [DllImport("kernel32.dll")]
-            private static extern long GetVolumeInformation(string PathName, StringBuilder VolumeNameBuffer, UInt32 VolumeNameSize, ref UInt32 VolumeSerialNumber, ref UInt32 MaximumComponentLength, ref UInt32 FileSystemFlags, StringBuilder FileSystemNameBuffer, UInt32 FileSystemNameSize);
 
-            public static long GetVolumeInformationWrapper(string PathName, StringBuilder VolumeNameBuffer, UInt32 VolumeNameSize, ref UInt32 VolumeSerialNumber, ref UInt32 MaximumComponentLength, ref UInt32 FileSystemFlags, StringBuilder FileSystemNameBuffer, UInt32 FileSystemNameSize) {
-                return GetVolumeInformation(PathName, VolumeNameBuffer, VolumeNameSize, ref VolumeSerialNumber, ref MaximumComponentLength, ref FileSystemFlags, FileSystemNameBuffer, FileSystemNameSize);
-            }
+        /// <summary>
+        /// Returns a value indicating whether NAnt is running in 64-bit mode.
+        /// </summary>
+        /// <value>
+        /// <see langword="true" /> if NAnt is running in 64-bit mode; otherwise,
+        /// <see langword="false" />.
+        /// </value>
+        internal static bool Is64Bit {
+            get { return (IntPtr.Size == 8); }
+        }
+
+        /// <summary>
+        /// Returns a value indicating whether NAnt is running in 32-bit mode.
+        /// </summary>
+        /// <remarks>
+        /// Note that even if the platform is 64-bit, NAnt may be running in
+        /// 32-bit mode.
+        /// </remarks>
+        /// <value>
+        /// <see langword="true" /> if NAnt is running in 32-bit mode; otherwise,
+        /// <see langword="false" />.
+        /// </value>
+        internal static bool Is32Bit {
+            get { return (IntPtr.Size == 4); }
+        }
+
+        /// <summary>
+        /// Returns a value indicating whether NAnt is running on Windows.
+        /// </summary>
+        /// <value>
+        /// <see langword="true" /> if NAnt is running on Windows;
+        /// otherwise, <see langword="false" />.
+        /// </value>
+        public static bool IsWindows {
+            get { return !IsUnix; }
         }
     }
 }

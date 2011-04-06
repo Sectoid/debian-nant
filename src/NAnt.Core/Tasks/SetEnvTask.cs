@@ -16,8 +16,10 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // Ian MacLean (imaclean@gmail.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -98,17 +100,25 @@ using NAnt.Core.Util;
         private string _literalValue;
         private FileInfo _file;
         private DirectoryInfo _directory;
-        private PathSet _path;        
+        private PathSet _path;
         private EnvironmentVariableCollection _environmentVariables = new EnvironmentVariableCollection();
 
         #endregion Private Instance Fields
+
+        #region Private Static Fields
+
+#if !NET_2_0
+        private const int ERROR_ENVVAR_NOT_FOUND = 203;
+#endif
+
+        #endregion Private Static Fields
 
         #region Public Instance Properties
         
         /// <summary>
         /// The name of a single Environment variable to set
         /// </summary>
-        [TaskAttribute("name", Required=false)]
+        [TaskAttribute("name")]
         public string EnvName {
             get { return _name; }
             set { _name = StringUtils.ConvertEmptyToNull(value); }
@@ -175,7 +185,8 @@ using NAnt.Core.Util;
         #endregion Public Instance Properties
         
         #region DllImports
-        
+
+#if !NET_2_0
         /// <summary>
         /// Win32 DllImport for the SetEnvironmentVariable function.
         /// </summary>
@@ -184,26 +195,38 @@ using NAnt.Core.Util;
         /// <returns></returns>
         [DllImport("kernel32.dll", SetLastError=true)]
         private static extern bool SetEnvironmentVariable(string lpName, string lpValue);
-                
+
         /// <summary>
         /// *nix dllimport for the setenv function.
         /// </summary>
         /// <param name="name"></param>
         /// <param name="value"></param>
         /// <param name="overwrite"></param>
-        /// <returns></returns>
+        /// <returns>
+        /// <c>0</c> if the execution is successful; otherwise, <c>-1</c>.
+        /// </returns>
         [DllImport("libc")]
         private static extern int setenv(string name, string value, int overwrite);
-        
+
+        /// <summary>
+        /// Deletes all instances of the variable name.
+        /// </summary>
+        /// <param name="name">The variable to unset.</param>
+        /// <returns>
+        /// <c>0</c> if the execution is successful; otherwise, <c>-1</c>.
+        /// </returns>
+        [DllImport("libc")]
+        private static extern int unsetenv(string name);
+#endif
+
         #endregion DllImports
-        
+
         #region Override implementation of Task
-        
+
         /// <summary>
         /// Checks whether the task is initialized with valid attributes.
         /// </summary>
-        /// <param name="taskNode"></param>
-        protected override void InitializeTask(XmlNode taskNode) {
+        protected override void Initialize() {
             if (EnvName == null && EnvironmentVariables.Count == 0) {
                 throw new BuildException("Either the \"name\" attribute or at"
                     + " least one nested <variable> element is required.", 
@@ -215,16 +238,18 @@ using NAnt.Core.Util;
         /// Set the environment variables
         /// </summary>
         protected override void ExecuteTask() {
-            if (EnvName != null && _value != null ) {
+            if (EnvName != null) {
                 // add single environment variable
                 EnvironmentVariables.Add(new EnvironmentVariable(EnvName, _value));
             }
-            
+
             foreach (EnvironmentVariable env in EnvironmentVariables) {
-                SetSingleEnvironmentVariable(env.VariableName, env.Value);
+                if (env.IfDefined && !env.UnlessDefined) {
+                    SetSingleEnvironmentVariable(env.VariableName, env.Value);
+                }
             }
         }
-        
+
         #endregion Override implementation of Task
 
         #region Private Instance Methods
@@ -235,32 +260,78 @@ using NAnt.Core.Util;
         /// <param name="name">The name of the environment variable.</param>
         /// <param name="value">The value of the environment variable.</param>
         private void SetSingleEnvironmentVariable(string name, string value) {
-            bool result;
-
             Log(Level.Verbose, "Setting environment variable \"{0}\" to \"{1}\".", 
                 name, value);
 
             // expand any env vars in value
-            string expandedValue = Environment.ExpandEnvironmentVariables(value);
-            
-            // set the environment variable
-            if (PlatformHelper.IsWin32) {
-                result = SetEnvironmentVariable(name, expandedValue);
-            } else if (PlatformHelper.IsUnix) {
-                result = setenv(name, expandedValue, 1) == 0; 
-            } else {
-                throw new BuildException("Setenv not defined on this platform", 
-                    Location);
+            string expandedValue = null;
+            if (value != null) {
+                expandedValue = Environment.ExpandEnvironmentVariables(value);
             }
 
-            // check if setting of environment variable was succesful
-            if (!result) {
+#if NET_2_0
+            try {
+                Environment.SetEnvironmentVariable (name, expandedValue);
+            } catch (Exception ex) {
                 throw new BuildException(string.Format(CultureInfo.InvariantCulture,
                     "Error setting environment variable \"{0}\" to \"{1}\".", 
-                    name, value), Location);
+                    name, value), Location, ex);
             }
+#else
+            bool result;
+
+            // set the environment variable
+            if (PlatformHelper.IsUnix) {
+                if (IsNullValue(expandedValue)) {
+                    result = unsetenv(name) == 0;
+                } else {
+                    result = setenv(name, expandedValue, 1) == 0;
+                }
+
+                if (!result) {
+                    throw new BuildException(string.Format(CultureInfo.InvariantCulture,
+                        "Error setting environment variable \"{0}\" to \"{1}\".", 
+                        name, value), Location);
+                }
+            } else {
+                // The SetEnvironmentVariable Win32 function only deletes an
+                // environment when its value is set to NULL. To match the
+                // behavior of Environment.SetEnvironmentVariable, we need to
+                // normalize a zero-length value or a value with a leading null
+                // char (\0) to a NULL value.
+                expandedValue = NormalizeValue(expandedValue);
+                result = SetEnvironmentVariable(name, expandedValue);
+                if (!result) {
+                    int error = Marshal.GetLastWin32Error ();
+                    if (error == ERROR_ENVVAR_NOT_FOUND) {
+                        // attempt to delete environment variable that does not
+                        // exist
+                        return;
+                    }
+                    throw new BuildException(string.Format(CultureInfo.InvariantCulture,
+                        "Error setting environment variable \"{0}\" to \"{1}\".", 
+                        name, value), Location, new Win32Exception (error));
+                }
+            }
+#endif
         }
         
         #endregion Private Instance Methods
+
+        #region Private Static Methods
+
+#if !NET_2_0
+        private static string NormalizeValue (string value) {
+            if (IsNullValue (value))
+                return null;
+            return value;
+        }
+
+        private static bool IsNullValue (string value) {
+            return (StringUtils.IsNullOrEmpty (value) || value [0] == '\0');
+        }
+#endif
+
+        #endregion Private Static Methods
     }
 }

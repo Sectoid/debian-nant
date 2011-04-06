@@ -1,32 +1,35 @@
 <?xml version="1.0" ?>
+<!-- NAnt build file for building NAnt -->
 <project name="nant" default="test">
     <!-- set build.date property to current date in format yyyy-MM-dd -->
     <tstamp property="build.date" pattern="yyyy-MM-dd" />
+
     <!-- global project settings -->
     <property name="project.name" value="nant" />
-    <property name="project.version" value="0.85" unless="${property::exists('project.version')}" />
-    <property name="project.release.type" value="release" unless="${property::exists('project.release.type')}" /> <!-- nightly / dev / alpha / beta# / rc# / release -->
+    <property name="project.version" value="0.91" unless="${property::exists('project.version')}" />
+    <property name="project.release.type" value="dev" unless="${property::exists('project.release.type')}" /> <!-- nightly | dev | alpha | beta# | rc# | release -->
+
     <if test="${project.release.type == 'nightly'}">
         <property name="project.version.full" value="${project.version + '-nightly-' + build.date}" />
     </if>
     <if test="${project.release.type != 'nightly'}">
-        <property name="project.version.full" value="${project.version + if(project.release.type == 'release', '', '-' + project.release.type)}" dynamic="true" />    
+        <property name="project.version.full" value="${project.version + if(project.release.type == 'release', '', '-' + project.release.type)}" dynamic="true" />
     </if>
 
-    <!-- 
+    <property name="build.warnaserror" value="false" />
+    <if test="${project.release.type == 'dev' or project.release.type == 'nightly'}">
+        <property name="build.warnaserror" value="true" />
+    </if>
+
+    <!--
         specifies whether the CommonAssemblyInfo.cs file should be created.
         we do not want this for releases (whether they're beta or release) as
         this would cause the build number to be updated
     -->
-    <property name="create.assemblyinfo" value="false" />
-
-    <!-- global build settings -->
-    <property name="lib.dir" value="${path::combine(build.dir, 'bin/lib')}" dynamic="true" />
-    <property name="lib.family.dir" value="${path::combine(lib.dir, framework::get-family(framework::get-target-framework()))}" dynamic="true" />
-    <property name="lib.framework.dir" value="${path::combine(lib.family.dir, version::to-string(framework::get-version(framework::get-target-framework())))}" dynamic="true" />
+    <property name="create.assemblyinfo" value="true" />
 
     <!-- default configuration -->
-    <property name="project.config" value="debug" /> <!-- debug|release -->
+    <property name="project.config" value="debug" /> <!-- debug | release -->
     <property name="nant.console.name" value="NAnt" />
     <property name="build.defines" value="" />
     <property name="build.number" value="${math::abs(math::floor(timespan::get-total-days(datetime::now() - datetime::parse('01/01/2000'))))}" />
@@ -53,12 +56,23 @@
         <include name="NAnt.Win32/NAnt.Win32.build" />
         <include name="NAnt.VisualCpp/NAnt.VisualCpp.build" />
         <include name="NAnt.VSNet/NAnt.VSNet.build" />
-        <!--
-        <include name="NAnt.NUnit/NAnt.NUnit.build" />
-        -->
     </fileset>
 
-    <!-- named project configurations (used by self-test and self-doc tasks) -->
+    <!-- build in help manual -->
+    <target name="help" description="Describe usage of this file">
+        <echo message="Synopsis:" />
+        <echo message="  nant" />
+        <echo message="  nant [debug|release] [clean|cleanall] [build] [test]" />
+        <echo message="" />
+        <echo message="Targets:" />
+        <echo message="  clean    - clean the files for the current project configuration" />
+        <echo message="  cleanall - clean the files for all project configurations" />
+        <echo message="  debug    - setup the build for 'debug' project configuration" />
+        <echo message="  release  - setup the build for 'release' project configuration" />
+        <echo message="" />
+    </target>
+
+    <!-- project configurations (used by self-test and self-doc tasks) -->
     <target name="debug" description="Perform a 'debug' build">
         <property name="project.config" value="debug" />
         <property name="build.debug" value="true" />
@@ -69,6 +83,7 @@
         <property name="build.debug" value="false" />
         <property name="build.dir" value="${project::get-base-directory()}/build/${project.name}-${project.version.full}" />
     </target>
+
     <!-- build tasks -->
     <target name="init" description="Initializes build properties">
         <call target="${project.config}" />
@@ -100,6 +115,8 @@
             </attributes>
         </asminfo>
     </target>
+
+    <!-- cleanup -->
     <target name="clean" depends="init" description="Deletes current build configuration">
         <delete dir="${build.dir}" if="${directory::exists(build.dir)}" />
     </target>
@@ -107,6 +124,7 @@
         <echo message="Deleting all builds from all configurations" />
         <delete dir="build" if="${directory::exists('build')}" />
     </target>
+
     <target name="build" depends="init, create-common-assemblyinfo" description="Builds current configuration">
         <echo message="Build Directory is ${build.dir}" />
         <!-- ensure bin directory exists -->
@@ -120,7 +138,7 @@
             </fileset>
         </copy>
         <copy todir="${build.dir}/bin">
-            <fileset basedir="lib">
+            <fileset basedir="lib/common/neutral">
                 <!-- copy log4net assembly, workaround for Mono bug #57602 -->
                 <include name="log4net.dll" />
                 <!-- #ziplib command line client -->
@@ -131,8 +149,8 @@
         <copy todir="${build.dir}/bin/lib">
             <fileset basedir="lib">
                 <include name="**/*" />
-                <exclude name="log4net.dll" />
-                <exclude name="scvs.exe" />
+                <exclude name="common/neutral/log4net.dll" />
+                <exclude name="common/neutral/scvs.exe" />
             </fileset>
         </copy>
         <!-- build NAnt.Core assembly -->
@@ -143,6 +161,8 @@
         <nant target="build">
             <buildfiles refid="ext.core" />
         </nant>
+        <!-- build NAnt.MSBuild assembly -->
+        <nant buildfile="src/NAnt.MSBuild/NAnt.MSBuild.build" target="build" />
         <!-- build NAnt.Core.Tests assembly -->
         <nant buildfile="tests/NAnt.Core/NAnt.Core.build" target="build" />
         <!-- build NAnt.Console.Tests assembly -->
@@ -152,10 +172,11 @@
             <buildfiles refid="ext.core.tests"/>
         </nant>
     </target>
+
     <!-- test the newly built NAnt -->
     <target name="test" depends="build" description="Tests current configuration">
         <echo message="Running unit tests with just built version of NAnt." />
-        <exec program="${build.dir}/bin/${nant.console.name}.exe" useruntimeengine="true">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
             <arg value="-buildfile:NAnt.build" />
             <arg value="-D:project.version=${project.version}" />
             <arg value="-D:project.release.type=${project.release.type}" />
@@ -164,8 +185,18 @@
             <arg value="self-test" />
         </exec>
     </target>
+    <target name="test-core" depends="build">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
+            <arg value="-buildfile:NAnt.build" />
+            <arg value="-D:project.version=${project.version}" />
+            <arg value="-D:project.release.type=${project.release.type}" />
+            <arg value="-targetframework:${framework::get-target-framework()}" />
+            <arg value="${project.config}" />
+            <arg value="self-test-core" />
+        </exec>
+    </target>
     <target name="test-dotnet" depends="build">
-        <exec program="${build.dir}/bin/${nant.console.name}.exe" useruntimeengine="true">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
             <arg value="-buildfile:NAnt.build" />
             <arg value="-D:project.version=${project.version}" />
             <arg value="-D:project.release.type=${project.release.type}" />
@@ -175,7 +206,7 @@
         </exec>
     </target>
     <target name="test-sourcecontrol" depends="build">
-        <exec program="${build.dir}/bin/${nant.console.name}.exe" useruntimeengine="true">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
             <arg value="-buildfile:NAnt.build" />
             <arg value="-D:project.version=${project.version}" />
             <arg value="-D:project.release.type=${project.release.type}" />
@@ -184,8 +215,18 @@
             <arg value="self-test-sourcecontrol" />
         </exec>
     </target>
+    <target name="test-visualcpp" depends="build">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
+            <arg value="-buildfile:NAnt.build" />
+            <arg value="-D:project.version=${project.version}" />
+            <arg value="-D:project.release.type=${project.release.type}" />
+            <arg value="-targetframework:${framework::get-target-framework()}" />
+            <arg value="${project.config}" />
+            <arg value="self-test-visualcpp" />
+        </exec>
+    </target>
     <target name="test-compression" depends="build">
-        <exec program="${build.dir}/bin/${nant.console.name}.exe" useruntimeengine="true">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
             <arg value="-buildfile:NAnt.build" />
             <arg value="-D:project.version=${project.version}" />
             <arg value="-D:project.release.type=${project.release.type}" />
@@ -205,6 +246,13 @@
         <!-- output the config file that will be used to run the tests -->
         <echo message="testing with config '${path::combine(nant::get-base-directory(), 'nant.tests.config')}'" />
     </target>
+    <target name="self-test-core" depends="prepare-self-test">
+        <nant target="test">
+            <buildfiles basedir="tests">
+                <include name="NAnt.Core/NAnt.Core.build" />
+            </buildfiles>
+        </nant>
+    </target>
     <target name="self-test-dotnet" depends="prepare-self-test">
         <nant target="test">
             <buildfiles basedir="tests">
@@ -216,6 +264,13 @@
         <nant target="test">
             <buildfiles basedir="tests">
                 <include name="NAnt.SourceControl/NAnt.SourceControl.build" />
+            </buildfiles>
+        </nant>
+    </target>
+    <target name="self-test-visualcpp" depends="prepare-self-test">
+        <nant target="test">
+            <buildfiles basedir="tests">
+                <include name="NAnt.VisualCpp/NAnt.VisualCpp.build" />
             </buildfiles>
         </nant>
     </target>
@@ -242,16 +297,18 @@
             <fileset>
                 <include name="examples/**" />
             </fileset>
-        </copy>    
+        </copy>
         <nant target="build clean">
             <buildfiles basedir="${build.dir}/examples">
                 <include name="examples.build" />
             </buildfiles>
         </nant>
-    </target>    
+    </target>
+
+    <!-- generate user documentation -->
     <target name="userdoc" depends="build" description="Builds user documentation">
         <!-- build the documenter -->
-        <csc target="library" define="${current.build.defines}" warnaserror="true" debug="${build.debug}" output="${build.dir}/bin/NDoc.Documenter.NAnt.dll">
+        <csc target="library" define="${current.build.defines}" warnaserror="${build.warnaserror}" debug="${build.debug}" output="${build.dir}/bin/NDoc.Documenter.NAnt.dll">
             <nowarn>
                 <!-- do not report deprecation warnings -->
                 <warning number="0618" />
@@ -263,8 +320,8 @@
             </sources>
             <references failonempty="true">
                 <include name="${build.dir}/bin/NAnt.Core.dll" />
-                <include name="${lib.framework.dir}/NDoc.ExtendedUI.dll" />
-                <include name="${lib.framework.dir}/NDoc.Core.dll" />
+                <include name="${nant::scan-probing-paths('NDoc.ExtendedUI.dll')}" />
+                <include name="${nant::scan-probing-paths('NDoc.Core.dll')}" />
                 <include name="System.Web.dll" />
             </references>
             <resources basedir="src/NDoc.Documenter.NAnt/Resources" prefix="Documenter.xslt.">
@@ -275,7 +332,7 @@
             </resources>
         </csc>
         <echo message="Creating task and type documentation from ${build.dir}/bin" />
-        <exec program="${build.dir}/bin/${nant.console.name}.exe" useruntimeengine="true">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
             <arg value="-indent:1" />
             <arg value="-buildfile:NAnt.build" />
             <arg value="-D:project.version=${project.version}" />
@@ -344,7 +401,7 @@
     </target>
     <target name="sdkdoc" depends="build" description="Builds SDK documentation">
         <echo message="Creating SDK Documentation for ${build.dir}/bin/${nant.console.name}.exe" />
-        <exec program="${build.dir}/bin/${nant.console.name}.exe" useruntimeengine="true">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
             <arg value="-indent:1" />
             <arg value="-buildfile:NAnt.build" />
             <arg value="-D:project.version=${project.version}" />
@@ -417,9 +474,9 @@
                 <!-- temporary directory -->
                 <include name="ndoc_msdn_temp" />
             </fileset>
-        </delete>        
+        </delete>
     </target>
-    
+
     <target name="self-schema" depends="init">
         <property name="schema.output" value="${build.dir}/schema/${project.name}.xsd" />
         <!-- ensure schema directory exists -->
@@ -436,7 +493,7 @@
     </target>
 
     <target name="schema" depends="build">
-        <exec program="${build.dir}/bin/${nant.console.name}.exe" useruntimeengine="true">
+        <exec program="${build.dir}/bin/${nant.console.name}.exe" managed="true">
             <arg value="-buildfile:NAnt.build" />
             <arg value="-D:project.version=${project.version}" />
             <arg value="-D:project.release.type=${project.release.type}" />
@@ -445,7 +502,7 @@
             <arg value="self-schema" />
         </exec>
     </target>
-    
+
     <target name="changelog" depends="init">
         <property name="start.date" value="2003/12/26"/>
         <property name="now" value="${datetime::now()}"/>
@@ -471,10 +528,10 @@
                 <parameter name="start-date" value="${start.date}" />
                 <parameter name="end-date" value="${end.date}" />
             </parameters>
-        </style> 
+        </style>
         <delete file="${build.dir}/${changes.name-without-extension}.xml" />
     </target>
-    
+
     <target name="deploy-schema" depends="schema" description="Deploys the Schema to VS.Net schemas dirs. For now it only copies to 7.0 and 7.1">
         <!-- retrieve location of VS.NET 2002 schema store -->
         <readregistry property="vs2002.xml.schemas" key="SOFTWARE\Microsoft\VisualStudio\7.0\InstallDir" hive="LocalMachine" failonerror="false" />
@@ -487,7 +544,7 @@
         <readregistry property="vs2003.xml.schemas" key="SOFTWARE\Microsoft\VisualStudio\7.1\InstallDir" hive="LocalMachine" failonerror="false" />
         <if test="${property::exists('vs2003.xml.schemas')}">
             <!-- deploy schema to VS.NET 2002 schema store -->
-            <copy file="${schema.output}" todir="${vs2003.xml.schemas}..\\Packages\schemas\xml" />        
+            <copy file="${schema.output}" todir="${vs2003.xml.schemas}..\\Packages\schemas\xml" />
         </if>
     </target>
 
@@ -511,6 +568,7 @@
                 <include name="tests/**" />
                 <include name="examples/**" />
                 <include name="schema/**" />
+                <include name="etc/nant.pc.in" />
                 <!-- third party assemblies -->
                 <include name="lib/**" />
                 <!-- website -->
@@ -586,6 +644,7 @@
                 <include name="NAnt.sln" />
                 <include name="COPYING.txt" />
                 <include name="README.txt" />
+                <include name="etc/nant.pc.in" />
                 <!-- third party assemblies -->
                 <include name="lib/**/*" />
                 <!-- license & release notes -->
@@ -613,6 +672,7 @@
                 <include name="NAnt.sln" />
                 <include name="COPYING.txt" />
                 <include name="README.txt" />
+                <include name="etc/nant.pc.in" />
                 <!-- third party assemblies -->
                 <include name="lib/**/*" />
                 <!-- license & release notes -->
@@ -680,7 +740,7 @@
     </target>
 
     <target name="package" depends="package-doc, package-src, package-bin" description="Creates a binary and source distribution package." />
-    
+
     <!-- Copies files to the bin folder. -->
     <target name="UpdateBin" depends="build" description="Does a release build and copies them to the bin folder.">
         <delete if="false">
@@ -707,19 +767,31 @@
     </target>
     <target name="set-net-1.0-framework-configuration">
         <property name="nant.settings.currentframework" value="net-1.0" />
-        <property name="current.build.defines" value="${build.defines}NET,NET_1_0" dynamic="true" />
+        <property name="current.build.defines" value="${build.defines}NET,NET_1_0,ONLY_1_0" dynamic="true" />
         <property name="link.sdkdoc.version" value="SDK_v1_0" />
         <property name="link.sdkdoc.web" value="true" />
     </target>
     <target name="set-net-1.1-framework-configuration">
         <property name="nant.settings.currentframework" value="net-1.1" />
-        <property name="current.build.defines" value="${build.defines}NET,NET_1_0,NET_1_1,ONLY_NET_1_1" dynamic="true" />
+        <property name="current.build.defines" value="${build.defines}NET,NET_1_0,NET_1_1,ONLY_1_1" dynamic="true" />
         <property name="link.sdkdoc.version" value="SDK_v1_1" />
         <property name="link.sdkdoc.web" value="true" />
     </target>
     <target name="set-net-2.0-framework-configuration">
         <property name="nant.settings.currentframework" value="net-2.0" />
-        <property name="current.build.defines" value="${build.defines}NET,NET_1_0,NET_2_0,ONLY_NET_2_0" dynamic="true" />
+        <property name="current.build.defines" value="${build.defines}NET,NET_1_0,NET_1_1,NET_2_0,ONLY_2_0" dynamic="true" />
+        <property name="link.sdkdoc.version" value="SDK_v1_1" />
+        <property name="link.sdkdoc.web" value="true" />
+    </target>
+    <target name="set-net-3.5-framework-configuration">
+        <property name="nant.settings.currentframework" value="net-3.5" />
+        <property name="current.build.defines" value="${build.defines}NET,NET_1_0,NET_1_1,NET_2_0,NET_3_5,ONLY_3_5" dynamic="true" />
+        <property name="link.sdkdoc.version" value="SDK_v1_1" />
+        <property name="link.sdkdoc.web" value="true" />
+    </target>
+    <target name="set-net-4.0-framework-configuration">
+        <property name="nant.settings.currentframework" value="net-4.0" />
+        <property name="current.build.defines" value="${build.defines}NET,NET_1_0,NET_1_1,NET_2_0,NET_3_5,NET_4_0,ONLY_4_0" dynamic="true" />
         <property name="link.sdkdoc.version" value="SDK_v1_1" />
         <property name="link.sdkdoc.web" value="true" />
     </target>
@@ -731,13 +803,25 @@
     </target>
     <target name="set-mono-1.0-framework-configuration">
         <property name="nant.settings.currentframework" value="mono-1.0" />
-        <property name="current.build.defines" value="${build.defines}MONO,NET_1_0,NET_1_1,ONLY_NET_1_1" dynamic="true" />
+        <property name="current.build.defines" value="${build.defines}MONO,NET_1_0,NET_1_1,ONLY_1_1" dynamic="true" />
         <property name="link.sdkdoc.version" value="SDK_v1_1" />
         <property name="link.sdkdoc.web" value="true" />
     </target>
     <target name="set-mono-2.0-framework-configuration">
         <property name="nant.settings.currentframework" value="mono-2.0" />
-        <property name="current.build.defines" value="${build.defines}MONO,NET_1_0,NET_1_1,NET_2_0,ONLY_NET_2_0" dynamic="true" />
+        <property name="current.build.defines" value="${build.defines}MONO,NET_1_0,NET_1_1,NET_2_0,ONLY_2_0" dynamic="true" />
+        <property name="link.sdkdoc.version" value="SDK_v1_1" />
+        <property name="link.sdkdoc.web" value="true" />
+    </target>
+    <target name="set-mono-3.5-framework-configuration">
+        <property name="nant.settings.currentframework" value="mono-3.5" />
+        <property name="current.build.defines" value="${build.defines}MONO,NET_1_0,NET_1_1,NET_2_0,NET_3_5,ONLY_3_5" dynamic="true" />
+        <property name="link.sdkdoc.version" value="SDK_v1_1" />
+        <property name="link.sdkdoc.web" value="true" />
+    </target>
+    <target name="set-mono-4.0-framework-configuration">
+        <property name="nant.settings.currentframework" value="mono-4.0" />
+        <property name="current.build.defines" value="${build.defines}MONO,NET_1_0,NET_1_1,NET_2_0,NET_3_5,NET_4_0,ONLY_4_0" dynamic="true" />
         <property name="link.sdkdoc.version" value="SDK_v1_1" />
         <property name="link.sdkdoc.web" value="true" />
     </target>
@@ -747,21 +831,30 @@
         <property name="link.sdkdoc.version" value="SDK_v1_0" />
         <property name="link.sdkdoc.web" value="true" />
     </target>
-    
+
     <!-- install targets -->
-    
+
     <target name="install" depends="install-windows, install-linux" />
-    
-<!--depends="userdoc" -->
-    <target name="install-windows" depends="build" if="${platform::is-win32()}">
+
+    <target name="install-windows" depends="build" if="${platform::is-windows()}">
+        <!-- Make sure that the docs are only built/installed when needed -->
+        <call target="userdoc" cascade="false" />
         <!-- install to program files directory by default -->
-        <property name="install.realprefix" value="${environment::get-folder-path('ProgramFiles')}" />
-        <if test="${property::exists('install.prefix') and string::get-length(install.prefix) != 0}">
-            <property name="install.realprefix" value="${install.prefix}" />
+        <property name="install.prefix" value="${environment::get-folder-path('ProgramFiles')}" />
+        <if test="${property::exists('prefix') and string::get-length(prefix) != 0}">
+            <property name="install.prefix" value="${prefix}" />
         </if>
-        <property name="install.copylocation" value="${path::combine(install.realprefix, 'NAnt')}"/>
+        <property name="install.nant" value="${path::combine(install.prefix, 'NAnt')}" />
+
+        <!-- support staged installs -->
+        <property name="install.destdir" value="" />
+        <if test="${property::exists('destdir') and string::get-length(destdir) != 0}">
+            <property name="install.destdir" value="${destdir}" />
+        </if>
+        <property name="install.copylocation" value="${install.destdir + install.nant}" />
+
+        <!-- perform (staged) install -->
         <echo message="Installing NAnt to '${install.copylocation}' ..." />
-        
         <copy todir="${install.copylocation}" overwrite="true">
             <fileset basedir="${build.dir}">
                 <include name="bin/**/*" />
@@ -772,49 +865,79 @@
             </fileset>
         </copy>
     </target>
-    
+
     <target name="install-linux" depends="build" if="${platform::is-unix()}">
-        <property name="install.realprefix" value="/usr/local" />
-        <if test="${property::exists('install.prefix') and string::get-length(install.prefix) != 0}">
-            <property name="install.realprefix" value="${install.prefix}" />
+        <property name="install.prefix" value="/usr/local" />
+        <if test="${property::exists('prefix') and string::get-length(prefix) != 0}">
+            <property name="install.prefix" value="${prefix}" />
         </if>
-        <property name="install.bindir" value="${path::combine(install.realprefix, 'bin')}"/>
-        <property name="install.share" value="${path::combine(install.realprefix, 'share')}"/>
-        <property name="install.copylocation" value="${path::combine (install.share, 'NAnt')}"/>
-        <property name="prefix" value="${pkg-config::get-variable('mono', 'prefix')}"/>
-        <echo message="Installing NAnt to '${install.copylocation}' ..." />
+        <property name="install.share" value="${path::combine(install.prefix, 'share')}" />
+        <property name="install.nant" value="${path::combine (install.share, 'NAnt')}" />
+
+        <!-- support staged installs -->
+        <property name="install.destdir" value="" />
+        <if test="${property::exists('destdir') and string::get-length(destdir) != 0}">
+            <property name="install.destdir" value="${destdir}" />
+        </if>
         
+        <property name="install.docdir" value="${install.destdir + path::combine(path::combine(install.share, 'doc'), 'NAnt')}" />
+        <if test="${property::exists('doc.prefix') and string::get-length(doc.prefix) != 0}">
+            <property name="install.docdir" value="${install.destdir + path::combine(doc.prefix, 'NAnt')}" />
+        </if>
+        
+        <property name="install.bindir" value="${install.destdir + path::combine(install.prefix, 'bin')}" />
+        <property name="install.pkgconfigdir" value="${install.destdir + path::combine(install.prefix, 'lib/pkgconfig')}" />
+        <property name="install.copylocation" value="${install.destdir + install.nant}" />
+
+        <!-- perform (staged) install -->
+        <echo message="Installing NAnt to '${install.copylocation}' ..." />
         <copy todir="${install.copylocation}" overwrite="true">
             <fileset basedir="${build.dir}">
                 <include name="bin/**/*" />
-                <include name="doc/**/*" />
 
                 <exclude name="bin/nant.tests.config" />
                 <exclude name="bin/*.Tests.*" />
             </fileset>
         </copy>
+
+        <echo message="Installing NAnt Docs to '${install.docdir}' ..." />
+        <mkdir dir="${install.docdir}" />
+        <copy todir="${install.docdir}" overwrite="true">
+            <fileset basedir="./doc">
+                <include name="**/*" />
+            </fileset>
+        </copy>
+
+        <mkdir dir="${install.pkgconfigdir}" />
+        <copy file="etc/nant.pc.in" tofile="${install.pkgconfigdir}/nant.pc">
+            <filterchain>
+                <replacetokens>
+                    <token key="VERSION" value="${project.version}" />
+                </replacetokens>
+            </filterchain>
+        </copy>
+
+        <!-- create wrapper script -->
         <echo message="Installing NAnt wrapper script to '${install.bindir}' ..." />
-        <!-- store filename of wrapper script in property -->
         <property name="wrapper" value="${path::combine(install.bindir, 'nant')}" />
         <!-- 
             create wrapper file using separate echo tasks for each line to ensure
             the line endings of the generated file match the platform on which 
             the wrapper is created
         -->
-        <echo file="${wrapper}" append="false">#!/bin/sh</echo>
-        <echo file="${wrapper}" append="true">exec ${path::combine(prefix, 'bin')}/mono ${path::combine(install.copylocation, 'bin')}/NAnt.exe "$@"</echo>
-        <exec program="chmod" commandline="a+x ${path::combine(install.bindir, 'nant')}"/>
+        <echo file="${wrapper}" append="false">#!/bin/sh${environment::newline()}</echo>
+        <echo file="${wrapper}" append="true">exec ${path::combine(install.prefix, 'bin')}/mono ${path::combine(install.nant, 'bin')}/NAnt.exe "$@"</echo>
+        <exec program="chmod" commandline="a+x ${path::combine(install.bindir, 'nant')}" />
     </target>
-    
     <target name="rpm" depends="init, build">
-        <echo message="Build dir: ${build.dir}"/>
+        <echo message="Build dir: ${build.dir}" />
         <copy todir="${build.dir}">
             <fileset>
                 <include name="NAnt.spec" />
             </fileset>
         </copy>
 
-        <nant buildfile="release.xml" target="prepare-rpm"/>
-        <nant buildfile="release.xml" target="binary-rpm"/>
+        <nant buildfile="release.xml" target="prepare-rpm" />
+        <nant buildfile="release.xml" target="binary-rpm" />
     </target>
 </project>

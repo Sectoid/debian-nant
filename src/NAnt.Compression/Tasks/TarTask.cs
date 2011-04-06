@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -125,6 +125,10 @@ namespace NAnt.Compression.Tasks {
                 TarFileSets.FileCount, DestFile.FullName);
 
             try {
+                if (!Directory.Exists(DestFile.DirectoryName)) {
+                    Directory.CreateDirectory(DestFile.DirectoryName);
+                }
+                
                 outstream = File.Create(DestFile.FullName);
 
                 // wrap outputstream with corresponding compression method
@@ -143,7 +147,7 @@ namespace NAnt.Compression.Tasks {
 
                 // do not use convert line endings of text files to \n, as this
                 // converts all content to ASCII
-                archive.SetAsciiTranslation(false);
+                archive.AsciiTranslate = false;
 
                 // process all filesets
                 foreach (TarFileSet fileset in TarFileSets) {
@@ -251,7 +255,7 @@ namespace NAnt.Compression.Tasks {
                 }
 
                 // close the tar archive
-                archive.CloseArchive();
+                archive.Close();
             } catch (Exception ex) {
                 // close the tar output stream
                 if (outstream != null) {
@@ -260,7 +264,7 @@ namespace NAnt.Compression.Tasks {
 
                 // close the tar archive
                 if (archive != null) {
-                    archive.CloseArchive();
+                    archive.Close();
                 }
 
                 // delete the (possibly corrupt) tar file
@@ -300,25 +304,5 @@ namespace NAnt.Compression.Tasks {
         }
 
         #endregion Private Instance Methods
-    }
-
-    /// <summary>
-    /// Specifies the compression methods supported by <see cref="TarTask" />.
-    /// </summary>
-    public enum TarCompressionMethod {
-        /// <summary>
-        /// No compression.
-        /// </summary>
-        None = 0,
-
-        /// <summary>
-        /// GZIP compression.
-        /// </summary>
-        GZip = 1,
-
-        /// <summary>
-        /// BZIP2 compression.
-        /// </summary>
-        BZip2 = 2
     }
 }

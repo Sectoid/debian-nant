@@ -17,7 +17,7 @@
 //
 // Matthew Mastracci (matt@aclaro.com)
 // Scott Ford (sford@RJKTECH.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -69,7 +69,7 @@ namespace NAnt.VSNet {
         /// <returns>
         /// <see langword="true" />.
         /// </returns>
-        public override bool IsManaged(string config) {
+        public override bool IsManaged(Configuration config) {
             return true;
         }
 

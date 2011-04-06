@@ -40,6 +40,139 @@ namespace Tests.NAnt.Core {
 
         #region Public Instance Methods
 
+        [Test]
+        public void CaseSensitive () {
+            Assert.AreEqual (PlatformHelper.IsUnix, _scanner.CaseSensitive, "#1");
+            _scanner.CaseSensitive = true;
+            Assert.IsTrue (_scanner.CaseSensitive, "#2");
+            _scanner.CaseSensitive = false;
+            Assert.IsFalse (_scanner.CaseSensitive, "#3");
+        }
+
+        [Test]
+        public void Matching_CaseInsensitive () {
+            string folder4 = Path.Combine(TempDirName, "FoldeR4");
+            TempFile.Create(Path.Combine(_folder3, "filea.txt"));
+            TempFile.Create(Path.Combine(folder4, "FileB.tlB"));
+            TempFile.Create(Path.Combine(folder4, "FileC.tlb"));
+
+            _scanner.CaseSensitive = false;
+            _scanner.Includes.Add ("Folder*/fIlEb.t*");
+            _scanner.Includes.Add ("Folde*2/fOldeR3/fIleA.tx*");
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#1");
+
+            File.Delete (Path.Combine(folder4, "FileB.tlB"));
+
+            _scanner.CaseSensitive = false;
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#2");
+
+            _scanner.CaseSensitive = true;
+            _scanner.CaseSensitive = false;
+            Assert.AreEqual (1, _scanner.FileNames.Count, "#3");
+        }
+
+        [Test]
+        public void Matching_CaseSensitive () {
+            string folder4 = Path.Combine(TempDirName, "FoldeR4");
+            TempFile.Create(Path.Combine(_folder3, "filea.txt"));
+            TempFile.Create(Path.Combine(folder4, "FileB.tlB"));
+            TempFile.Create(Path.Combine(folder4, "FileC.tlb"));
+
+            _scanner.CaseSensitive = true;
+            _scanner.Includes.Add ("Folder4/fIlEb.t*");
+            _scanner.Includes.Add ("fOldeR3/FiLeA.txt");
+            Assert.AreEqual (0, _scanner.FileNames.Count, "#1");
+
+            _scanner.Includes.Clear ();
+            _scanner.Includes.Add ("FoldeR4/FileB.t*");
+            _scanner.Includes.Add ("folder2/folder3/filea.txt");
+            _scanner.Scan ();
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#1");
+
+            File.Delete (Path.Combine(folder4, "FileB.tlB"));
+
+            _scanner.CaseSensitive = true;
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#2");
+
+            _scanner.CaseSensitive = false;
+            _scanner.CaseSensitive = true;
+            Assert.AreEqual (1, _scanner.FileNames.Count, "#3");
+        }
+
+        [Test]
+        public void IncludeNames_Unix () {
+            if (!PlatformHelper.IsUnix) {
+                return;
+            }
+
+            string folder4 = Path.Combine(TempDirName, "FoldeR4");
+            TempFile.Create(Path.Combine(_folder3, "filea.txt"));
+            TempFile.Create(Path.Combine(folder4, "FileB.tlB"));
+            TempFile.Create(Path.Combine(folder4, "FileC.tlb"));
+
+            _scanner.Includes.Add ("Folder4/fIlEb.tlb");
+            _scanner.Includes.Add ("FoldeR2/fOldeR3/fIleA.txt");
+            Assert.AreEqual (0, _scanner.FileNames.Count, "#1");
+
+            _scanner.CaseSensitive = false;
+            Assert.AreEqual (0, _scanner.FileNames.Count, "#2");
+
+            _scanner.CaseSensitive = true;
+            _scanner.Includes.Clear ();
+            _scanner.Includes.Add ("FoldeR4/fIlEb.tlb");
+            _scanner.Includes.Add ("folder2/folder3/fIleA.txt");
+            Assert.AreEqual (0, _scanner.FileNames.Count, "#3");
+
+            _scanner.CaseSensitive = false;
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#4");
+
+            _scanner.CaseSensitive = true;
+            _scanner.Includes.Clear ();
+            _scanner.Includes.Add ("Folder4/FileB.tlB");
+            _scanner.Includes.Add ("FoldeR2/fOldeR3/filea.txt");
+            Assert.AreEqual (0, _scanner.FileNames.Count, "#5");
+
+            _scanner.CaseSensitive = false;
+            Assert.AreEqual (0, _scanner.FileNames.Count, "#6");
+        }
+
+        [Test]
+        public void IncludeNames_Windows () {
+            if (PlatformHelper.IsUnix) {
+                return;
+            }
+
+            string folder4 = Path.Combine(TempDirName, "FoldeR4");
+            TempFile.Create(Path.Combine(_folder3, "filea.txt"));
+            TempFile.Create(Path.Combine(folder4, "FileB.tlB"));
+            TempFile.Create(Path.Combine(folder4, "FileC.tlb"));
+
+            _scanner.Includes.Add ("Folder4/fIlEb.tlb");
+            _scanner.Includes.Add ("FoldeR2/fOldeR3/fIleA.txt");
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#1");
+
+            _scanner.CaseSensitive = true;
+            Assert.AreEqual (0, _scanner.FileNames.Count, "#2");
+
+            _scanner.CaseSensitive = false;
+            _scanner.Includes.Clear ();
+            _scanner.Includes.Add ("FoldeR4/fIlEb.tlb");
+            _scanner.Includes.Add ("folder2/folder3/fIleA.txt");
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#3");
+
+            _scanner.CaseSensitive = true;
+            Assert.AreEqual (0, _scanner.FileNames.Count, "#4");
+
+            _scanner.CaseSensitive = false;
+            _scanner.Includes.Clear ();
+            _scanner.Includes.Add ("Folder4/FileB.tlB");
+            _scanner.Includes.Add ("FoldeR2/fOldeR3/filea.txt");
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#5");
+
+            _scanner.CaseSensitive = true;
+            Assert.AreEqual (2, _scanner.FileNames.Count, "#6");
+        }
+
         /// <summary>Test ? wildcard and / seperator.</summary>
         /// <remarks>
         ///   Matches all the files in the folder2 directory that being with Foo 
@@ -412,6 +545,35 @@ namespace Tests.NAnt.Core {
             CheckScan(includedFileNames, excludedFileNames);
         }
 
+        /// <summary>Test shorthand for including all files recursively.</summary>
+        [Test]
+        public void Test_ShorthandIncludes() {
+            string[] includedFileNames = new string[] {
+                                                          Path.Combine(_folder2, "XYZ.txt"),
+                                                          Path.Combine(_folder3, "XYZ.bak")
+            };
+            string[] excludedFileNames = new string[0];
+
+            _scanner.Includes.Add(@"folder2/");
+            CheckScan(includedFileNames, excludedFileNames);
+        }
+
+        /// <summary>Test shorthand for exclusing all files recursively.</summary>
+        [Test]
+        public void Test_ShorthandExcludes() {
+            string[] includedFileNames = new string[] {
+                                                          Path.Combine(_folder1, "filea.txt")
+            };
+            string[] excludedFileNames = new string[] {
+                                                          Path.Combine(_folder2, "fileb.txt"),
+                                                          Path.Combine(_folder3, "filec.txt")
+            };
+
+            _scanner.Includes.Add(@"**");
+            _scanner.Excludes.Add(@"folder2/");
+            CheckScan(includedFileNames, excludedFileNames);
+        }
+
         /// <summary>Test excluding files.</summary>
         /// <remarks>
         ///   Matches all XYZ* files, but then excludes them.
@@ -541,6 +703,70 @@ namespace Tests.NAnt.Core {
             _scanner.Scan();
 
             Assert.AreEqual(2, _scanner.FileNames.Count);
+        }
+
+        /// <summary>
+        /// Test for bug #1776101.
+        /// </summary>
+        [Test]
+        public void Test_BaseDir_CaseInSensitive() {
+            if (PlatformHelper.IsUnix) {
+                return;
+            }
+
+            TempFile.Create(Path.Combine(_folder3, "filea.txt"));
+            TempFile.Create(Path.Combine(_folder3, "fileb.tlb"));
+
+            _scanner.Includes.Add("folder2/folder3/*.txt");
+            _scanner.Scan();
+            Assert.AreEqual(1, _scanner.FileNames.Count, "#1");
+
+            _scanner.Includes.Add("Folder2/**/folder3/*.tlb");
+            _scanner.Scan();
+            Assert.AreEqual(2, _scanner.FileNames.Count, "#2");
+
+            _scanner = new DirectoryScanner();
+            _scanner.BaseDirectory = TempDirectory;
+            _scanner.Includes.Add("**/*.tlb");
+            _scanner.Scan();
+            Assert.AreEqual(1, _scanner.FileNames.Count, "#3");
+
+            _scanner.Excludes.Add("folder2/folder3/*.txt");
+            _scanner.Excludes.Add("Folder2/**/folder3/*.tlb");
+            _scanner.Scan();
+            Assert.AreEqual(0, _scanner.FileNames.Count, "#4");
+        }
+
+        /// <summary>
+        /// Test for bug #1776101.
+        /// </summary>
+        [Test]
+        public void Test_BaseDir_CaseSensitive() {
+            if (!PlatformHelper.IsUnix) {
+                return;
+            }
+
+            TempFile.Create(Path.Combine(_folder3, "filea.txt"));
+            TempFile.Create(Path.Combine(_folder3, "fileb.tlb"));
+
+            _scanner.Includes.Add("folder2/folder3/*.txt");
+            _scanner.Scan();
+            Assert.AreEqual(1, _scanner.FileNames.Count, "#1");
+
+            _scanner.Includes.Add("Folder2/**/folder3/*.tlb");
+            _scanner.Scan();
+            Assert.AreEqual(1, _scanner.FileNames.Count, "#2");
+
+            _scanner = new DirectoryScanner();
+            _scanner.BaseDirectory = TempDirectory;
+            _scanner.Includes.Add("**/*.tlb");
+            _scanner.Scan();
+            Assert.AreEqual(1, _scanner.FileNames.Count, "#3");
+
+            _scanner.Excludes.Add("folder2/folder3/*.txt");
+            _scanner.Excludes.Add("Folder2/**/folder3/*.tlb");
+            _scanner.Scan();
+            Assert.AreEqual(1, _scanner.FileNames.Count, "#4");
         }
 
         #endregion Public Instance Methods

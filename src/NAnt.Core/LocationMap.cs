@@ -33,7 +33,7 @@ namespace NAnt.Core {
     /// Maps XML nodes to the text positions from their original source.
     /// </summary>
     [Serializable()]
-    public class LocationMap {
+    internal class LocationMap {
         #region Private Instance Fields
 
         // The LocationMap uses a hash table to map filenames to resolve specific maps.
@@ -107,7 +107,8 @@ namespace NAnt.Core {
                     if ((reader.NodeType != XmlNodeType.Whitespace) &&
                         (reader.NodeType != XmlNodeType.EndElement) &&
                         (reader.NodeType != XmlNodeType.ProcessingInstruction) &&
-                        (reader.NodeType != XmlNodeType.XmlDeclaration)) {
+                        (reader.NodeType != XmlNodeType.XmlDeclaration) &&
+                        (reader.NodeType != XmlNodeType.DocumentType)) {
 
                         int level = reader.Depth;
                         string currentXPath = "";
@@ -116,7 +117,7 @@ namespace NAnt.Core {
                         if (reader.Depth < previousDepth) {
                             // Clear vars for new depth
                             string[] list = parentXPath.Split('/');
-                            string newXPath = ""; // once appended to / will be root node ...
+                            string newXPath = ""; // once appended to / will be root node
 
                             for (int j = 1; j < level+1; j++) {
                                 newXPath += "/" + list[j];
@@ -172,7 +173,6 @@ namespace NAnt.Core {
 
             // add map at the end to prevent adding maps that had errors
             _fileMap.Add(fileName, map);
-
         }
 
         /// <summary>
@@ -184,9 +184,8 @@ namespace NAnt.Core {
         /// </remarks>
         public Location GetLocation(XmlNode node) {
             // check for non-backed documents
-            if (StringUtils.IsNullOrEmpty(node.BaseURI)) {
-                return new Location(null, 0, 0 ); // return null location because we have a fileless node.
-            } 
+            if (StringUtils.IsNullOrEmpty(node.BaseURI))
+                return Location.UnknownLocation; // return empty location because we have a fileless node.
 
             // convert URI to absolute URI
             Uri uri = new Uri(node.BaseURI);
@@ -235,7 +234,7 @@ namespace NAnt.Core {
                     }
                 }
 
-                nav.MoveToParent(); // do loop condition here               
+                nav.MoveToParent(); // do loop condition here
                 index++; // Convert to 1 based index
 
                 string thisNode = "child::node()[" + index.ToString(CultureInfo.InvariantCulture) + "]";

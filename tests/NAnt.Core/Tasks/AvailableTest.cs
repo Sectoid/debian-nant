@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System.Globalization;
 using System.IO;
@@ -99,7 +99,8 @@ namespace Tests.NAnt.Core.Tasks {
                     <echo message='file.exists={2}'/>
                 </project>";
             // unix accepts most characters ( except / ) so this test won't fail there.
-            if (! PlatformHelper.IsUnix ) {
+            // mono even on windows acts like unix here.
+            if (!(PlatformHelper.IsMono)) {
                 RunBuild(string.Format(CultureInfo.InvariantCulture, 
                     xml, AvailableTask.ResourceType.File.ToString(CultureInfo.InvariantCulture), 
                     "###-?", "${file.exists}"));

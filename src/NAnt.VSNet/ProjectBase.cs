@@ -64,8 +64,8 @@ namespace NAnt.VSNet {
                 throw new ArgumentNullException("referencesResolver");
             }
 
-            _projectConfigurations = CollectionsUtil.CreateCaseInsensitiveHashtable();
-            _buildConfigurations = CollectionsUtil.CreateCaseInsensitiveHashtable();
+            _projectConfigurations = new ConfigurationDictionary();
+            _buildConfigurations = new ConfigurationDictionary();
             _extraOutputFiles = CollectionsUtil.CreateCaseInsensitiveHashtable();
 
             // ensure the specified project is actually supported by this project
@@ -137,11 +137,11 @@ namespace NAnt.VSNet {
         /// </summary>
         /// <remarks>
         ///   <para>
-        ///   For <see cref="NAnt.VSNet.ProjectLocation.Local" /> projects, this is defined
+        ///   For <see cref="T:NAnt.VSNet.ProjectLocation.Local" /> projects, this is defined
         ///   as <c>&lt;Project Directory&lt;\obj</c>.
         ///   </para>
         ///   <para>
-        ///   For <see cref="NAnt.VSNet.ProjectLocation.Web" /> projects, this is defined
+        ///   For <see cref="T:NAnt.VSNet.ProjectLocation.Web" /> projects, this is defined
         ///   as <c>%HOMEPATH%\VSWebCache\&lt;Machine Name&gt;\&lt;Project Directory&gt;\obj</c>.
         ///   </para>
         /// </remarks>
@@ -174,21 +174,10 @@ namespace NAnt.VSNet {
             set;
         }
 
-        public string[] Configurations {
-            get {
-                return (string[]) new ArrayList(_projectConfigurations.Keys).ToArray(typeof(string));
-            }
-        }
-
         /// <summary>
-        /// Gets a case-insensitive list of project configurations.
+        /// Gets a list of all configurations defined in the project.
         /// </summary>
-        /// <remarks>
-        /// The key of the <see cref="Hashtable" /> is the name of the 
-        /// configuration and the value is a <see cref="ConfigurationBase" />
-        /// instance.
-        /// </remarks>
-        public Hashtable ProjectConfigurations {
+        public ConfigurationDictionary ProjectConfigurations {
             get { return _projectConfigurations; }
         }
 
@@ -197,16 +186,11 @@ namespace NAnt.VSNet {
         /// </summary>
         /// <remarks>
         /// <para>
-        /// Project configurations that are not in this list do not need to be 
-        /// compiled (unless the project was not loaded through a solution file).
-        /// </para>
-        /// <para>
-        /// The key of the <see cref="Hashtable" /> is the name of the 
-        /// configuration and the value is a <see cref="ConfigurationBase" />
-        /// instance.
+        /// Project configurations that are not in this list do not need to be
+        /// compiled.
         /// </para>
         /// </remarks>
-        public Hashtable BuildConfigurations {
+        public ConfigurationDictionary BuildConfigurations {
             get { return _buildConfigurations; }
         }
 
@@ -313,21 +297,12 @@ namespace NAnt.VSNet {
         public abstract ProjectReferenceBase CreateProjectReference(
             ProjectBase project, bool isPrivateSpecified, bool isPrivate);
 
-        public bool Compile(string solutionConfiguration) {
-            ConfigurationBase projectConfig = (ConfigurationBase) BuildConfigurations[solutionConfiguration];
+        public bool Compile(Configuration solutionConfiguration) {
+            ConfigurationBase projectConfig = BuildConfigurations[solutionConfiguration];
             if (projectConfig == null) {
                 Log(Level.Info, "Skipping '{0}' [{1}] ...", Name, solutionConfiguration);
                 return true;
             }
-
-            /*
-            ConfigurationBase config = (ConfigurationBase) ProjectConfigurations[projectConfiguration];
-            if (config == null) {
-                Log(Level.Info, "Skipping '{0}': configuration '{1}' does not exist.", 
-                    Name, configuration);
-                return true;
-            }
-            */
 
             Log(Level.Info, "Building '{0}' [{1}] ...", Name, projectConfig.Name);
 
@@ -343,9 +318,9 @@ namespace NAnt.VSNet {
             return (result != BuildResult.Failed);
         }
 
-        public string GetOutputPath(string solutionConfiguration) {
+        public string GetOutputPath(Configuration solutionConfiguration) {
             // obtain project configuration (corresponding with solution configuration)
-            ConfigurationBase config = (ConfigurationBase) BuildConfigurations[solutionConfiguration];
+            ConfigurationBase config = BuildConfigurations[solutionConfiguration];
             if (config == null) {
                 return null;
             }
@@ -353,12 +328,12 @@ namespace NAnt.VSNet {
             return config.OutputPath;
         }
 
-        public ConfigurationBase GetConfiguration(string solutionConfiguration) {
+        public ConfigurationBase GetConfiguration(Configuration solutionConfiguration) {
             // obtain project configuration (corresponding with solution configuration)
-            return (ConfigurationBase) BuildConfigurations[solutionConfiguration];
+            return BuildConfigurations[solutionConfiguration];
         }
 
-        public StringCollection GetAssemblyReferences(string solutionConfiguration) {
+        public StringCollection GetAssemblyReferences(Configuration solutionConfiguration) {
             Hashtable uniqueReferences = CollectionsUtil.CreateCaseInsensitiveHashtable();
 
             foreach (ReferenceBase reference in References) {
@@ -410,23 +385,29 @@ namespace NAnt.VSNet {
         }
 
         /// <summary>
-        /// Gets the complete set of output files for the project.
-        /// configuration.
+        /// Gets the complete set of output files for the project configuration
+        /// matching the specified solution configuration.
         /// </summary>
         /// <param name="solutionConfiguration">The solution configuration that is built.</param>
         /// <param name="outputFiles">The set of output files to be updated.</param>
         /// <remarks>
-        /// The key of the case-insensitive <see cref="Hashtable" /> is the 
-        /// full path of the output file and the value is the path relative to
-        /// the output directory.
+        ///   <para>
+        ///   The key of the case-insensitive <see cref="Hashtable" /> is the 
+        ///   full path of the output file and the value is the path relative to
+        ///   the output directory.
+        ///   </para>
+        ///   <para>
+        ///   If the project is not configured to be built for the specified
+        ///   solution configuration, then no output files are added.
+        ///   </para>
         /// </remarks>
-        public virtual void GetOutputFiles(string solutionConfiguration, Hashtable outputFiles) {
+        public virtual void GetOutputFiles(Configuration solutionConfiguration, Hashtable outputFiles) {
             // obtain project configuration (corresponding with solution configuration)
-            ConfigurationBase config = (ConfigurationBase) BuildConfigurations[solutionConfiguration];
+            ConfigurationBase config = BuildConfigurations[solutionConfiguration];
             if (config == null) {
-                throw new BuildException(string.Format(CultureInfo.InvariantCulture,
-                    "Solution configuration '{0}' does not exist for project '{1}'.",
-                    solutionConfiguration, Name), Location.UnknownLocation);
+                // the project is not configured to be built for the specified
+                // solution configuration
+                return;
             }
 
             foreach (ReferenceBase reference in References) {
@@ -479,7 +460,7 @@ namespace NAnt.VSNet {
         /// <see langword="true" /> if the project output for the given build
         /// configuration is managed; otherwise, <see langword="false" />.
         /// </returns>
-        public abstract bool IsManaged(string configuration);
+        public abstract bool IsManaged(Configuration configuration);
 
         #endregion Public Instance Methods
 
@@ -554,7 +535,7 @@ namespace NAnt.VSNet {
         /// The default implementation will ensure that none of the output files 
         /// are marked read-only.
         /// </remarks>
-        protected virtual void Prepare(string solutionConfiguration) {
+        protected virtual void Prepare(Configuration solutionConfiguration) {
             // determine the output files of the project
             Hashtable outputFiles = CollectionsUtil.CreateCaseInsensitiveHashtable();
             GetOutputFiles(solutionConfiguration, outputFiles);
@@ -597,7 +578,7 @@ namespace NAnt.VSNet {
             attribTask.ReadOnlyAttrib = false;
 
             // obtain project configuration (corresponding with solution configuration)
-            ConfigurationBase config = (ConfigurationBase) BuildConfigurations[solutionConfiguration];
+            ConfigurationBase config = BuildConfigurations[solutionConfiguration];
 
             // add all output files to the <attrib> fileset
             foreach (DictionaryEntry de in outputFiles) {
@@ -617,7 +598,7 @@ namespace NAnt.VSNet {
             }
         }
 
-        protected abstract BuildResult Build(string solutionConfiguration);
+        protected abstract BuildResult Build(Configuration solutionConfiguration);
 
         /// <summary>
         /// Copies the specified file if the destination file does not exist, or
@@ -754,22 +735,14 @@ namespace NAnt.VSNet {
 
         #endregion Protected Instance Methods
 
-        #region Protected Static Methods
-
-        protected static XmlDocument LoadXmlDocument(string fileName) {
-            return ProjectFactory.LoadProjectXml(fileName);
-        }
-
-        #endregion Protected Static Methods
-
         #region Private Instance Fields
 
         private readonly ProductVersion _productVersion;
         private readonly SolutionTask _solutionTask;
         private readonly TempFileCollection _temporaryFiles;
         private readonly DirectoryInfo _outputDir;
-        private readonly Hashtable _projectConfigurations;
-        private readonly Hashtable _buildConfigurations;
+        private readonly ConfigurationDictionary _projectConfigurations;
+        private readonly ConfigurationDictionary _buildConfigurations;
         private readonly GacCache _gacCache;
         private readonly ReferencesResolver _refResolver;
         private readonly Hashtable _extraOutputFiles;
@@ -800,7 +773,12 @@ namespace NAnt.VSNet {
         /// <summary>
         /// A Visual J# project.
         /// </summary>
-        JSharp = 3
+        JSharp = 3,
+
+        /// <summary>
+        /// MSBuild project.
+        /// </summary>
+        MSBuild = 4
     }
 
     /// <summary>
@@ -832,6 +810,11 @@ namespace NAnt.VSNet {
         /// Visual Studio.NET 2003
         /// </summary>
         Everett = 2,
+
+        /// <summary>
+        /// Visual Studio 2005
+        /// </summary>
+        Whidbey =3,
     }
 
     /// <summary>
@@ -839,7 +822,7 @@ namespace NAnt.VSNet {
     /// </summary>
     public enum ProjectLocation {
         /// <summary>
-        /// A local project. 
+        /// A local project.
         /// </summary>
         Local = 1,
 

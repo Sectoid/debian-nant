@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Reflection;
@@ -94,25 +94,6 @@ namespace NAnt.Core.Functions {
         public static int GetRevision(Version version) {
             return version.Revision;
         }
-
-        /*
-        /// <summary>
-        /// Initializes a new <see cref="Version" /> instance using the value 
-        /// represented by the specified <see cref="string" />.
-        /// </summary>
-        /// <param name="version">A string containing the major, minor, build, and revision numbers, where each number is delimited with a period character ('.').</param>
-        /// <returns>
-        /// A <see cref="Version" /> instance representing the specified 
-        /// <see cref="string" />.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="version" /> has fewer than two components or more than four components.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">A major, minor, build, or revision component is less than zero.</exception>
-        /// <exception cref="FormatException">At least one component of <paramref name="version" /> does not parse to a decimal integer.</exception>
-        [Function("init")]
-        public static Version Init(string version) {
-            return new Version(version);
-        }
-        */
 
         #endregion Public Static Methods
     }

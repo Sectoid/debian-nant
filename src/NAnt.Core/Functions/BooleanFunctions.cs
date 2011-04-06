@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Globalization;
@@ -42,7 +42,7 @@ namespace NAnt.Core.Functions {
         /// </summary>
         /// <param name="s">A string containing the value to convert.</param>
         /// <returns>
-        /// <see langword="true" /> if <paramref name="value" /> is equivalent to 
+        /// <see langword="true" /> if <paramref name="s" /> is equivalent to 
         /// "True"; otherwise, <see langword="false" />.
         /// </returns>
         /// <exception cref="FormatException"><paramref name="s" /> is not equivalent to <see cref="bool.TrueString" /> or <see cref="bool.FalseString" />.</exception>

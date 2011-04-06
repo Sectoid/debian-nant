@@ -39,7 +39,10 @@ namespace NAnt.Compression.Tasks {
     /// Creates a zip file from the specified filesets.
     /// </summary>
     /// <remarks>
-    ///   <para>Uses <see href="http://www.icsharpcode.net/OpenSource/SharpZipLib/">#ziplib</see> (SharpZipLib), an open source Tar/Zip/GZip library written entirely in C#.</para>
+    ///   <para>
+    ///   Uses <see href="http://www.icsharpcode.net/OpenSource/SharpZipLib/">#ziplib</see>
+    ///   (SharpZipLib), an open source Tar/Zip/GZip library written entirely in C#.
+    ///   </para>
     /// </remarks>
     /// <example>
     ///   <para>
@@ -139,7 +142,7 @@ namespace NAnt.Compression.Tasks {
 
         /// <summary>
         /// Specifies the behaviour when a duplicate file is found. The default
-        /// is <see cref="NAnt.Compression.Types.DuplicateHandling.Add" />.
+        /// is <see cref="T:NAnt.Compression.Types.DuplicateHandling.Add" />.
         /// </summary>
         [TaskAttribute("duplicate")]
         public DuplicateHandling DuplicateHandling {
@@ -174,8 +177,12 @@ namespace NAnt.Compression.Tasks {
             
             Log(Level.Info, "Zipping {0} files to '{1}'.", 
                 ZipFileSets.FileCount, ZipFile.FullName);
-
+                
             try {
+                if (!Directory.Exists(ZipFile.DirectoryName)) {
+                    Directory.CreateDirectory(ZipFile.DirectoryName);
+                }
+            
                 // set encoding to use for filenames and comment
                 ZipConstants.DefaultCodePage = Encoding.CodePage;
 
@@ -269,23 +276,26 @@ namespace NAnt.Compression.Tasks {
                             entry.DateTime = File.GetLastWriteTime(file);
                         }
 
-                        Log(Level.Verbose, "Adding {0}.", entryName);
-                    
-                        // write file to zip file
-                        zOutstream.PutNextEntry(entry);
-
                         // write file content to stream in small chuncks
                         using (FileStream fs = File.OpenRead(file)) {
+                            // set size for backward compatibility with older unzip
+                            entry.Size = fs.Length;
+
+                            Log(Level.Verbose, "Adding {0}.", entryName);
+
+                            // write file to zip file
+                            zOutstream.PutNextEntry(entry);
+
                             byte[] buffer = new byte[50000];
 
                             while (true) {
                                 int bytesRead = fs.Read(buffer, 0, buffer.Length);
-                                if (bytesRead == 0) {
+                                if (bytesRead == 0)
                                     break;
-                                }
                                 zOutstream.Write(buffer, 0, bytesRead);
                             }
                         }
+
                     }
 
                     // add (possibly empty) directories to zip
@@ -324,6 +334,9 @@ namespace NAnt.Compression.Tasks {
 
                             // create directory entry
                             ZipEntry entry = new ZipEntry(entryName);
+
+                            // set size for backward compatibility with older unzip
+                            entry.Size = 0L;
 
                             // write directory to zip file
                             zOutstream.PutNextEntry(entry);

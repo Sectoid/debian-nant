@@ -16,38 +16,52 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 // Gerry Shaw (gerry_shaw@yahoo.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
 using System.Security.Permissions;
 
 using NAnt.Core.Attributes;
+using NAnt.Core.Extensibility;
 
 namespace NAnt.Core {
-    public class TaskBuilder {
+    public class TaskBuilder : ExtensionBuilder {
         #region Public Instance Constructors
 
         /// <summary>
         /// Creates a new instance of the <see cref="TaskBuilder" /> class
-        /// for the specified <see cref="Task" /> class in the <see cref="Assembly" />
-        /// specified.
+        /// for the specified <see cref="Task" /> class in the specified
+        /// <see cref="Assembly" />.
         /// </summary>
+        /// <remarks>
+        /// An <see cref="ExtensionAssembly" /> for the specified <see cref="Assembly" />
+        /// is cached for future use.
+        /// </remarks>
         /// <param name="assembly">The <see cref="Assembly" /> containing the <see cref="Task" />.</param>
         /// <param name="className">The class representing the <see cref="Task" />.</param>
-        public TaskBuilder(Assembly assembly, string className) {
-            _assembly = assembly;
-            _className = className;
-
-            // get task name from attribute
-            TaskNameAttribute taskNameAttribute = (TaskNameAttribute) 
-                Attribute.GetCustomAttribute(assembly.GetType(ClassName), typeof(TaskNameAttribute));
-
-            _taskName = taskNameAttribute.Name;
+        public TaskBuilder (Assembly assembly, string className)
+            : this (ExtensionAssembly.Create (assembly), className) {
         }
 
         #endregion Public Instance Constructors
+
+        #region Internal Instance Constructors
+
+        /// <summary>
+        /// Creates a new instance of the <see cref="TaskBuilder" /> class
+        /// for the specified <see cref="Task" /> class in the specified
+        /// <see cref="ExtensionAssembly" />.
+        /// </summary>
+        /// <param name="extensionAssembly">The <see cref="ExtensionAssembly" /> containing the <see cref="Task" />.</param>
+        /// <param name="className">The class representing the <see cref="Task" />.</param>
+        internal TaskBuilder(ExtensionAssembly extensionAssembly, string className) : base (extensionAssembly) {
+            _className = className;
+        }
+
+        #endregion Internal Instance Constructors
 
         #region Public Instance Properties
 
@@ -64,16 +78,6 @@ namespace NAnt.Core {
         }
 
         /// <summary>
-        /// Gets the <see cref="Assembly" /> from which the task will be created.
-        /// </summary>
-        /// <value>
-        /// The <see cref="Assembly" /> containing the task.
-        /// </value>
-        public Assembly Assembly {
-            get { return _assembly; }
-        }
-
-        /// <summary>
         /// Gets the name of the task which the <see cref="TaskBuilder" />
         /// can create.
         /// </summary>
@@ -82,7 +86,15 @@ namespace NAnt.Core {
         /// create.
         /// </value>
         public string TaskName {
-            get { return _taskName; }
+            get {
+                if (_taskName == null) {
+                    TaskNameAttribute taskNameAttribute = (TaskNameAttribute) 
+                        Attribute.GetCustomAttribute(Assembly.GetType(ClassName), 
+                        typeof(TaskNameAttribute));
+                    _taskName = taskNameAttribute.Name;
+                }
+                return _taskName;
+            }
         }
 
         #endregion Public Instance Properties
@@ -91,7 +103,7 @@ namespace NAnt.Core {
 
         [ReflectionPermission(SecurityAction.Demand, Flags=ReflectionPermissionFlag.NoFlags)]
         public Task CreateTask() {
-            return (Task) Assembly.CreateInstance(
+            Task task = (Task) Assembly.CreateInstance(
                 ClassName, 
                 true, 
                 BindingFlags.Public | BindingFlags.Instance,
@@ -99,14 +111,18 @@ namespace NAnt.Core {
                 null,
                 CultureInfo.InvariantCulture,
                 null);
+            IPluginConsumer pluginConsumer = task as IPluginConsumer;
+            if (pluginConsumer != null) {
+                TypeFactory.PluginScanner.RegisterPlugins(pluginConsumer);
+            }
+            return task;
         }
 
         #endregion Public Instance Methods
 
         #region Private Instance Fields
 
-        private Assembly _assembly;
-        private string _className;
+        private readonly string _className;
         private string _taskName;
 
         #endregion Private Instance Fields

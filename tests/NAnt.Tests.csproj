@@ -160,6 +160,20 @@
                     BuildAction = "Compile"
                 />
                 <File
+                    RelPath = "NAnt.Core\ExpressionTokenizerTest.cs"
+                    SubType = "Code"
+                    BuildAction = "Compile"
+                />
+                <File
+                    RelPath = "NAnt.Core\Framework.config"
+                    BuildAction = "EmbeddedResource"
+                />
+                <File
+                    RelPath = "NAnt.Core\FrameworkInfoTest.cs"
+                    SubType = "Code"
+                    BuildAction = "Compile"
+                />
+                <File
                     RelPath = "NAnt.Core\LocationTest.cs"
                     SubType = "Code"
                     BuildAction = "Compile"
@@ -240,6 +254,11 @@
                     BuildAction = "Compile"
                 />
                 <File
+                    RelPath = "NAnt.Core\Functions\EnvironmentFunctionsTest.cs"
+                    SubType = "Code"
+                    BuildAction = "Compile"
+                />
+                <File
                     RelPath = "NAnt.Core\Functions\FileFunctionsTest.cs"
                     SubType = "Code"
                     BuildAction = "Compile"
@@ -281,6 +300,11 @@
                 />
                 <File
                     RelPath = "NAnt.Core\Tasks\ExecTaskTest.cs"
+                    SubType = "Code"
+                    BuildAction = "Compile"
+                />
+                <File
+                    RelPath = "NAnt.Core\Tasks\ExternalProgramBaseTest.cs"
                     SubType = "Code"
                     BuildAction = "Compile"
                 />
@@ -391,6 +415,11 @@
                 />
                 <File
                     RelPath = "NAnt.Core\Util\ConsoleCapture.cs"
+                    SubType = "Code"
+                    BuildAction = "Compile"
+                />
+                <File
+                    RelPath = "NAnt.Core\Util\ConsoleWriter.cs"
                     SubType = "Code"
                     BuildAction = "Compile"
                 />

@@ -23,6 +23,8 @@ using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+
+using NAnt.Core.Extensibility;
 using NAnt.Core.Util;
 
 namespace NAnt.Core {
@@ -34,9 +36,23 @@ namespace NAnt.Core {
         }
 
         private EvalMode _evalMode = EvalMode.Evaluate;
+        private ExpressionTokenizer _tokenizer;
+        private readonly Project _project;
 
-        private ExpressionTokenizer _tokenizer = null;
-        public ExpressionEvalBase() {}
+        public ExpressionEvalBase(Project project) {
+            if (project == null)
+                throw new ArgumentNullException("project");
+
+            _project = project;
+        }
+
+        #region Public Instance Properties
+
+        public Project Project {
+            get { return _project; }
+        }
+
+        #endregion Public Instance Properties
 
         public object Evaluate(ExpressionTokenizer tokenizer) {
             _evalMode = EvalMode.Evaluate;
@@ -147,21 +163,12 @@ namespace NAnt.Core {
             ExpressionTokenizer.Position p0 = _tokenizer.CurrentPosition;
             object o = ParseAddSubtract();
 
-            // TODO: remove this after the 0.85 release
-            if (_tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Punctuation &&
-                    _tokenizer.TokenText == "=") {
-                throw BuildParseError("The '=' operator is no longer"
-                    + " supported to check for equality. Use the '==' operator"
-                    + " instead.", _tokenizer.CurrentPosition);
-            }
-
-
             if (_tokenizer.CurrentToken == ExpressionTokenizer.TokenType.EQ
-             || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.NE
-             || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.LT
-             || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.GT
-             || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.LE
-             || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.GE) {
+                || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.NE
+                || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.LT
+                || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.GT
+                || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.LE
+                || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.GE) {
                 
                 ExpressionTokenizer.TokenType op = _tokenizer.CurrentToken;
                 _tokenizer.GetNextToken();
@@ -201,6 +208,8 @@ namespace NAnt.Core {
                             return o.Equals(o2);
                         } else if (o is TimeSpan && o2 is TimeSpan) {
                             return o.Equals(o2);
+                        } else if (o is Version && o2 is Version) {
+                            return o.Equals(o2);
                         } else if (o.GetType().IsEnum) {
                             if (o2 is string) {
                                 return o.Equals(Enum.Parse(o.GetType(), (string) o2, false));
@@ -216,7 +225,7 @@ namespace NAnt.Core {
                         }
 
                         throw BuildParseError(string.Format(CultureInfo.InvariantCulture, 
-                                                            ResourceUtils.GetString("NA1038"), 
+                            ResourceUtils.GetString("NA1038"), 
                             GetSimpleTypeName(o.GetType()), GetSimpleTypeName(o2.GetType())), 
                             p0, p2);
                     case ExpressionTokenizer.TokenType.NE:
@@ -245,6 +254,8 @@ namespace NAnt.Core {
                         } else if (o is DateTime && o2 is DateTime) {
                             return !o.Equals(o2);
                         } else if (o is TimeSpan && o2 is TimeSpan) {
+                            return !o.Equals(o2);
+                        } else if (o is Version && o2 is Version) {
                             return !o.Equals(o2);
                         } else if (o.GetType().IsEnum) {
                             if (o2 is string) {
@@ -292,6 +303,8 @@ namespace NAnt.Core {
                             return ((IComparable) o).CompareTo(o2) < 0;
                         } else if (o is TimeSpan && o2 is TimeSpan) {
                             return ((IComparable) o).CompareTo(o2) < 0;
+                        } else if (o is Version && o2 is Version) {
+                            return ((IComparable) o).CompareTo(o2) < 0;
                         }
 
                         throw BuildParseError(string.Format(CultureInfo.InvariantCulture, 
@@ -325,6 +338,8 @@ namespace NAnt.Core {
                         } else if (o is DateTime && o2 is DateTime) {
                             return ((IComparable) o).CompareTo(o2) > 0;
                         } else if (o is TimeSpan && o2 is TimeSpan) {
+                            return ((IComparable) o).CompareTo(o2) > 0;
+                        } else if (o is Version && o2 is Version) {
                             return ((IComparable) o).CompareTo(o2) > 0;
                         }
 
@@ -360,6 +375,8 @@ namespace NAnt.Core {
                             return ((IComparable) o).CompareTo(o2) <= 0;
                         } else if (o is TimeSpan && o2 is TimeSpan) {
                             return ((IComparable) o).CompareTo(o2) <= 0;
+                        } else if (o is Version && o2 is Version) {
+                            return ((IComparable) o).CompareTo(o2) <= 0;
                         }
 
                         throw BuildParseError(string.Format(CultureInfo.InvariantCulture, 
@@ -393,6 +410,8 @@ namespace NAnt.Core {
                         } else if (o is DateTime && o2 is DateTime) {
                             return ((IComparable) o).CompareTo(o2) >= 0;
                         } else if (o is TimeSpan && o2 is TimeSpan) {
+                            return ((IComparable) o).CompareTo(o2) >= 0;
+                        } else if (o is Version && o2 is Version) {
                             return ((IComparable) o).CompareTo(o2) >= 0;
                         }
 
@@ -524,8 +543,8 @@ namespace NAnt.Core {
                             o = (double) o * (long) o2;
                         } else {
                             throw BuildParseError(string.Format(CultureInfo.InvariantCulture, 
-                                        ResourceUtils.GetString("NA1036"), 
-                                        GetSimpleTypeName(o.GetType()), GetSimpleTypeName(o2.GetType())), p0, p3);
+                                ResourceUtils.GetString("NA1036"), 
+                                GetSimpleTypeName(o.GetType()), GetSimpleTypeName(o2.GetType())), p0, p3);
                         }
                     }
                 } else if (_tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Div) {
@@ -887,9 +906,9 @@ namespace NAnt.Core {
                     _tokenizer.GetNextToken();
                 } else {
                     while (_tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Dot
-                            || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Minus
-                            || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Keyword
-                            || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Number) {
+                        || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Minus
+                        || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Keyword
+                        || _tokenizer.CurrentToken == ExpressionTokenizer.TokenType.Number) {
                         functionOrPropertyName += _tokenizer.TokenText;
                         _tokenizer.GetNextToken();
                     }
@@ -901,6 +920,8 @@ namespace NAnt.Core {
                     _tokenizer.GetNextToken();
                 }
 
+                MethodInfo function = null;
+
                 if (isFunction) {
                     if ( _tokenizer.CurrentToken != ExpressionTokenizer.TokenType.LeftParen) {
                         throw BuildParseError("'(' expected.", _tokenizer.CurrentPosition);
@@ -909,56 +930,61 @@ namespace NAnt.Core {
                     _tokenizer.GetNextToken();
 
                     int currentArgument = 0;
-                    ParameterInfo[] formalParameters = null;
-
-                    try {
-                        formalParameters = GetFunctionParameters(functionOrPropertyName);
-                    } catch (Exception e) {
-                        throw BuildParseError(e.Message, p0, _tokenizer.CurrentPosition);
-                    }
 
                     while (_tokenizer.CurrentToken != ExpressionTokenizer.TokenType.RightParen &&
-                            _tokenizer.CurrentToken != ExpressionTokenizer.TokenType.EOF) {
-                        if (currentArgument >= formalParameters.Length) {
-                            throw BuildParseError(string.Format(CultureInfo.InvariantCulture,
-                                        ResourceUtils.GetString("NA1046"), functionOrPropertyName), p0, _tokenizer.CurrentPosition);
-                        }
+                        _tokenizer.CurrentToken != ExpressionTokenizer.TokenType.EOF) {
 
                         ExpressionTokenizer.Position beforeArgument = _tokenizer.CurrentPosition;
                         object e = ParseExpression();
                         ExpressionTokenizer.Position afterArgument = _tokenizer.CurrentPosition;
 
-                        if (!SyntaxCheckOnly()) {
-                            object convertedValue = SafeConvert(formalParameters[currentArgument].ParameterType,
-                                    e,
-                                    string.Format(CultureInfo.InvariantCulture, "argument {1} ({0}) of {2}()", formalParameters[currentArgument].Name, currentArgument + 1, functionOrPropertyName),
-                                    beforeArgument, afterArgument);
-                            args.Add(convertedValue);
-                        }
+                        args.Add (new FunctionArgument(functionOrPropertyName,
+                            currentArgument, e, beforeArgument, afterArgument));
+
                         currentArgument++;
-                        if (_tokenizer.CurrentToken == ExpressionTokenizer.TokenType.RightParen) {
+                        if (_tokenizer.CurrentToken == ExpressionTokenizer.TokenType.RightParen)
                             break;
-                        }
-                        if (_tokenizer.CurrentToken != ExpressionTokenizer.TokenType.Comma) {
+                        if (_tokenizer.CurrentToken != ExpressionTokenizer.TokenType.Comma)
                             throw BuildParseError("',' expected.", _tokenizer.CurrentPosition);
-                        }
                         _tokenizer.GetNextToken();
-                    }
-                    if (currentArgument < formalParameters.Length) {
-                        throw BuildParseError(string.Format(CultureInfo.InvariantCulture,
-                                    ResourceUtils.GetString("NA1044"), functionOrPropertyName), p0, _tokenizer.CurrentPosition);
                     }
 
                     if (_tokenizer.CurrentToken != ExpressionTokenizer.TokenType.RightParen) {
                         throw BuildParseError("')' expected.", _tokenizer.CurrentPosition);
                     }
                     _tokenizer.GetNextToken();
+
+                    if (!SyntaxCheckOnly()) {
+                        FunctionArgument[] functionArgs = new FunctionArgument[args.Count];
+                        args.CopyTo(0, functionArgs, 0, args.Count);
+
+                        // lookup function matching name and argument count
+                        try {
+                            function = TypeFactory.LookupFunction(functionOrPropertyName,
+                                functionArgs, Project);
+                        } catch (BuildException ex) {
+                            throw BuildParseError(ex.Message, p0, _tokenizer.CurrentPosition);
+                        }
+
+                        ParameterInfo[] formalParameters = function.GetParameters ();
+                        args.Clear ();
+
+                        for (int i = 0; i < functionArgs.Length; i++) {
+                            FunctionArgument arg = functionArgs[i];
+                            ParameterInfo pi = formalParameters[i];
+                            object convertedValue = SafeConvert(pi.ParameterType,
+                                arg.Value, string.Format(CultureInfo.InvariantCulture,
+                                "argument {1} ({0}) of {2}()", pi.Name, arg.Index, arg.Name),
+                                arg.BeforeArgument, arg.AfterArgument);
+                            args.Add(convertedValue);
+                        }
+                    }
                 }
 
                 try {
                     if (!SyntaxCheckOnly()) {
                         if (isFunction) {
-                            return EvaluateFunction(functionOrPropertyName, args.ToArray());
+                            return EvaluateFunction(function, args.ToArray ());
                         } else {
                             return EvaluateProperty(functionOrPropertyName);
                         }
@@ -1055,8 +1081,20 @@ namespace NAnt.Core {
                 }
 
                 if (returnType.IsEnum) {
-                    if (source is string) {
-                        return Enum.Parse(returnType, (string) source, false);
+                    string sourceText = source as string;
+                    if (sourceText != null) {
+                        // support both ',' and ' ' as separator chars for flags
+                        string[] flags = sourceText.Split(' ', ',');
+                        StringBuilder sb = new StringBuilder(sourceText.Length);
+                        for (int i = 0; i < flags.Length; i++) {
+                            string flag = flags[i].Trim();
+                            if (flag.Length == 0)
+                                continue;
+                            if (sb.Length > 0)
+                                sb.Append(',');
+                            sb.Append(flag);
+                        }
+                        return Enum.Parse(returnType, sb.ToString(), true);
                     } else {
                         return Enum.ToObject(returnType, source);
                     }
@@ -1068,6 +1106,9 @@ namespace NAnt.Core {
                         description, GetSimpleTypeName(returnType), 
                         GetSimpleTypeName(source.GetType())), p0, p1);
                 }
+
+                if (returnType.IsAssignableFrom(source.GetType()))
+                    return source;
                 
                 return Convert.ChangeType(source, returnType, CultureInfo.InvariantCulture);
             } catch (ExpressionParseException) {
@@ -1104,8 +1145,7 @@ namespace NAnt.Core {
 
         #region Overridables
 
-        protected abstract object EvaluateFunction(string functionName, object[] args);
-        protected abstract ParameterInfo[] GetFunctionParameters(string functionName);
+        protected abstract object EvaluateFunction(MethodInfo method, object[] args);
         protected abstract object EvaluateProperty(string propertyName);
 
         protected virtual object UnexpectedToken() {

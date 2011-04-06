@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.IO;
@@ -182,6 +182,7 @@ namespace NAnt.Core.Types {
     /// <summary>
     /// A set of environment variables.
     /// </summary>
+    [Serializable]
     [ElementName("environment")]
     public class EnvironmentSet : Element {
         #region Private Instance Fields

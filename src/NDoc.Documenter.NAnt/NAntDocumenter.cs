@@ -17,7 +17,7 @@
 //
 // Ian MacLean (ian@maclean.ms)
 // Gerry Shaw (gerry_shaw@yahoo.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 // Scott Hernandez (ScottHernandez_hotmail_com)
 
 using System;
@@ -291,7 +291,7 @@ namespace NDoc.Documenter.NAnt {
                 return;
             }
 
-            string filename = utilities.GetFileNameForType(typeNode);
+            string filename = utilities.GetFileNameForType(typeNode, false);
             if (filename == null) {
                 // we should never get here, but just in case ...
                 return;
@@ -391,7 +391,7 @@ namespace NDoc.Documenter.NAnt {
             }
 
             string methodID = functionElement.GetAttribute("id");
-            string filename = utilities.GetFileNameForFunction(functionElement);
+            string filename = utilities.GetFileNameForFunction(functionElement, false);
 
             XsltArgumentList arguments = CreateXsltArgumentList();
 
@@ -401,6 +401,31 @@ namespace NDoc.Documenter.NAnt {
 
             // add extension object to Xslt arguments
             arguments.AddExtensionObject("urn:NAntUtil", utilities);
+
+            // document parameter types
+            foreach (XmlAttribute paramTypeAttribute in functionElement.SelectNodes("parameter/@type")) {
+                string paramType = "T:" + paramTypeAttribute.Value;
+                XmlNode typeNode = utilities.GetTypeNodeByID(paramType);
+                if (typeNode != null) {
+                    ElementDocType paramDocType = utilities.GetElementDocType(typeNode);
+                    if (paramDocType != ElementDocType.None) {
+                        DocumentType(typeNode, paramDocType, utilities);
+                    }
+                }
+            }
+
+            // document return type
+            XmlAttribute returnTypeAttribute = functionElement.Attributes["returnType"];
+            if (returnTypeAttribute != null) {
+                string returnType = "T:" + returnTypeAttribute.Value;
+                XmlNode returnTypeNode = utilities.GetTypeNodeByID(returnType);
+                if (returnTypeNode != null) {
+                    ElementDocType returnDocType = utilities.GetElementDocType(returnTypeNode);
+                    if (returnDocType != ElementDocType.None) {
+                        DocumentType(returnTypeNode, returnDocType, utilities);
+                    }
+                }
+            }
 
             // create the page
             TransformAndWriteResult(_xsltFunctionDoc, arguments, filename);

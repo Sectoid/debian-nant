@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -196,7 +196,7 @@ namespace NAnt.VSNet {
         /// <param name="projectDefault">The value to return if setting is not defined in both the file and project configuration.</param>
         /// <returns>
         /// The value of a setting for the specified tool, or 
-        /// <paramref name="defaultValue" /> if the setting is not defined in
+        /// <paramref name="settingName" /> if the setting is not defined in
         /// both the file and project configuration.
         /// </returns>
         /// <remarks>

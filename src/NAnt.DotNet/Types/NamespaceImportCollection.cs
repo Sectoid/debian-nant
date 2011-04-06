@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -178,13 +178,12 @@ namespace NAnt.DotNet.Types {
         /// <param name="value">The instance to verify.</param>
         protected void ValidateType(object value) {
             if (value == null) {
-                throw new Exception();
-                //throw ADP.ParameterNull("value", this, this.ItemType);
+                throw new ArgumentNullException("value");
             }
 
             if (!this.ItemType.IsInstanceOfType(value)) {
-                throw new Exception();
-                //throw ADP.InvalidParameterType(this, this.ItemType, value);
+                throw new ArgumentException ("Specified value is not an instance"
+                    + " of " + this.ItemType.FullName + ".");
             }
         }
 
@@ -194,9 +193,10 @@ namespace NAnt.DotNet.Types {
         /// </summary>
         /// <param name="index">The index to check.</param>
         protected void RangeCheck(int index) {
-            if (index < 0 || Count <= index) {
-                throw new Exception();
-                //throw ADP.ParametersMappingIndex(index, this);
+            if (index < 0 || index >= Count) {
+                throw new ArgumentOutOfRangeException("index", index, "Index "
+                    + "must be greater than or equal to zero, and less than "
+                    + "the number of items in the collection.");
             }
         }
 
@@ -358,7 +358,7 @@ namespace NAnt.DotNet.Types {
         /// Inserts a <see cref="NamespaceImport" /> into the collection at the
         /// specified index.
         /// </summary>
-        /// <param name="index">The zero-based index at which <paramref name="item"/> should be inserted.</param>
+        /// <param name="index">The zero-based index at which <paramref name="value"/> should be inserted.</param>
         /// <param name="value">The <see cref="NamespaceImport"/> to insert.</param>
         void IList.Insert(int index, object value) {
             ValidateType(value);
@@ -384,7 +384,7 @@ namespace NAnt.DotNet.Types {
         /// collection; otherwise, <see langword="false" />.
         /// </returns>
         bool IList.Contains(object value) {
-            ValidateType(value);        
+            ValidateType(value);
             return List.Contains((NamespaceImport) value);
         }
 
@@ -447,7 +447,7 @@ namespace NAnt.DotNet.Types {
         /// Inserts a <see cref="NamespaceImport" /> into the collection at the
         /// specified index.
         /// </summary>
-        /// <param name="index">The zero-based index at which <paramref name="item"/> should be inserted.</param>
+        /// <param name="index">The zero-based index at which <paramref name="value"/> should be inserted.</param>
         /// <param name="value">The <see cref="NamespaceImport"/> to insert.</param>
         public void Insert(int index, NamespaceImport value) {
             List.Insert(index, value);

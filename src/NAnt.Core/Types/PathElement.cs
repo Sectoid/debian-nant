@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections.Specialized;
@@ -126,7 +126,7 @@ namespace NAnt.Core.Types {
 
         #region Override implementation of Element
 
-        protected override void InitializeElement(XmlNode elementNode) {
+        protected override void Initialize() {
             if (File == null && Directory == null && Path == null) {
                 throw new BuildException(string.Format(CultureInfo.InstalledUICulture,
                     "At least \"file\", \"directory\" or \"path\" must be" 

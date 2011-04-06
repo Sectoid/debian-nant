@@ -23,6 +23,7 @@
 using System;
 using System.Collections;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Configuration;
 using System.Globalization;
 using System.IO;
@@ -206,7 +207,7 @@ namespace NAnt.Core {
         /// </summary>
         /// <param name="uriOrFilePath">
         /// <para>The full path to the build file.</para>
-        /// <para>This can be of any form that <see cref="XmlDocument.Load(string)" /> accepts.</para>
+        /// <para>This can be of any form that <see cref="M:XmlDocument.Load(string)" /> accepts.</para>
         /// </param>
         /// <param name="threshold">The message threshold.</param>
         /// <param name="indentLevel">The project indentation level.</param>
@@ -231,7 +232,7 @@ namespace NAnt.Core {
         /// </summary>
         /// <param name="uriOrFilePath">
         /// <para>The full path to the build file.</para>
-        /// <para>This can be of any form that <see cref="XmlDocument.Load(string)" /> accepts.</para>
+        /// <para>This can be of any form that <see cref="M:XmlDocument.Load(string)" /> accepts.</para>
         /// </param>
         /// <param name="threshold">The message threshold.</param>
         /// <param name="indentLevel">The project indentation level.</param>
@@ -260,7 +261,7 @@ namespace NAnt.Core {
         /// </summary>
         /// <param name="uriOrFilePath">
         /// <para>The full path to the build file.</para>
-        /// <para>This can be of any form that <see cref="XmlDocument.Load(string)" /> accepts.</para>
+        /// <para>This can be of any form that <see cref="M:XmlDocument.Load(string)" /> accepts.</para>
         /// </param>
         /// <param name="parent">The parent <see cref="Project" />.</param>
         /// <remarks>
@@ -443,6 +444,71 @@ namespace NAnt.Core {
         }
 
         /// <summary>
+        /// Gets the list of supported frameworks filtered by the specified
+        /// <see cref="FrameworkTypes" /> parameter.
+        /// </summary>
+        /// <param name="types">A bitwise combination of <see cref="FrameworkTypes" /> values that filter the frameworks to retrieve.</param>
+        /// <returns>
+        /// An array of type <see cref="FrameworkInfo" /> that contains the
+        /// frameworks specified by the <paramref name="types" /> parameter,
+        /// sorted on name.
+        /// </returns>
+        internal FrameworkInfo[] GetFrameworks (FrameworkTypes types) {
+            ArrayList matches = new ArrayList(Frameworks.Count);
+
+            foreach (FrameworkInfo framework in Frameworks.Values) {
+                if ((types & FrameworkTypes.InstallStateMask) != 0) {
+                    if ((types & FrameworkTypes.Installed) == 0 && framework.IsValid)
+                        continue;
+                    if ((types & FrameworkTypes.NotInstalled) == 0 && !framework.IsValid)
+                        continue;
+                }
+
+                if ((types & FrameworkTypes.DeviceMask) != 0) {
+                    switch (framework.ClrType) {
+                        case ClrType.Compact:
+                            if ((types & FrameworkTypes.Compact) == 0)
+                                continue;
+                            break;
+                        case ClrType.Desktop:
+                            if ((types & FrameworkTypes.Desktop) == 0)
+                                continue;
+                            break;
+                        case ClrType.Browser:
+                            if ((types & FrameworkTypes.Browser) == 0)
+                                continue;
+                            break;
+                        default:
+                            throw new NotSupportedException(string.Format(
+                                CultureInfo.InvariantCulture, "CLR type '{0}'"
+                                + " is not supported.", framework.ClrType));
+                    }
+                }
+
+                if ((types & FrameworkTypes.VendorMask) != 0) {
+                    switch (framework.Vendor) {
+                        case VendorType.Mono:
+                            if ((types & FrameworkTypes.Mono) == 0)
+                                continue;
+                            break;
+                        case VendorType.Microsoft:
+                            if ((types & FrameworkTypes.MS) == 0)
+                                continue;
+                            break;
+                    }
+                }
+
+                matches.Add(framework);
+            }
+
+            matches.Sort(FrameworkInfo.NameComparer);
+
+            FrameworkInfo[] frameworks = new FrameworkInfo[matches.Count];
+            matches.CopyTo(frameworks);
+            return frameworks;
+        }
+
+        /// <summary>
         /// Gets the framework in which NAnt is currently running.
         /// </summary>
         /// <value>
@@ -459,6 +525,8 @@ namespace NAnt.Core {
         /// <value>
         /// The framework to use for compilation.
         /// </value>
+        /// <exception cref="ArgumentNullException">The value specified is <see langword="null" />.</exception>
+        /// <exception cref="BuildException">The specified framework is not installed, or not configured correctly.</exception>
         /// <remarks>
         /// We will use compiler tools and system assemblies for this framework 
         /// in framework-related tasks.
@@ -466,6 +534,11 @@ namespace NAnt.Core {
         public FrameworkInfo TargetFramework {
             get { return _targetFramework; }
             set {
+                if (value == null) {
+                    throw new ArgumentNullException("value");
+                }
+
+                value.Validate ();
                 _targetFramework = value;
                 UpdateTargetFrameworkProperties();
             }
@@ -679,6 +752,54 @@ namespace NAnt.Core {
         #endregion Internal Instance Properties
 
         #region Public Instance Methods
+
+        /// <summary>
+        /// Returns the <see cref="Location"/> of the given node in an XML
+        /// file loaded by NAnt.
+        /// </summary>
+        /// <remarks>
+        ///   <para>
+        ///   The <paramref name="node" /> must be from an <see cref="XmlDocument" />
+        ///   that has been loaded by NAnt.
+        ///   </para>
+        ///   <para>
+        ///   NAnt also does not process any of the following node types:
+        ///   </para>
+        ///   <list type="bullet">
+        ///     <item>
+        ///         <description><see cref="XmlNodeType.Whitespace" /></description>
+        ///     </item>
+        ///     <item>
+        ///         <description><see cref="XmlNodeType.EndElement" /></description>
+        ///     </item>
+        ///     <item>
+        ///         <description><see cref="XmlNodeType.ProcessingInstruction" /></description>
+        ///     </item>
+        ///     <item>
+        ///         <description><see cref="XmlNodeType.XmlDeclaration" /></description>
+        ///     </item>
+        ///     <item>
+        ///         <description><see cref="XmlNodeType.DocumentType" /></description>
+        ///     </item>
+        ///   </list>
+        ///   <para>
+        ///   As a result, no location information is available for these nodes.
+        ///   </para>
+        /// </remarks>
+        /// <param name="node">The <see cref="XmlNode" /> to get the <see cref="Location"/> for.</param>
+        /// <returns>
+        /// <see cref="Location"/> of the given node in an XML file loaded by NAnt, or
+        /// <see cref="Location.UnknownLocation" /> if the node was not loaded from
+        /// an XML file.
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        ///   <para><paramref name="node" /> is from an XML file that was not loaded by NAnt.</para>
+        ///   <para>-or</para>
+        ///   <para><paramref name="node" /> was not processed by NAnt (eg. an XML declaration).</para>
+        /// </exception>
+        public Location GetLocation(XmlNode node) {
+            return LocationMap.GetLocation(node);
+        }
 
         /// <summary>
         /// Dispatches a <see cref="BuildStarted" /> event to the build listeners 
@@ -906,10 +1027,10 @@ namespace NAnt.Core {
 
                 // only execute targets that have not been executed already, if 
                 // we are not forcing.
-                if (forceDependencies || !currentTarget.Executed) {
+                if (forceDependencies || !currentTarget.Executed || currentTarget.Name == targetName) {
                     currentTarget.Execute();
                 }
-            } while (!currentTarget.Name.Equals(targetName));
+            } while (currentTarget.Name != targetName);
 
             // restore calling target, as a <call> task might have caused the 
             // current target to be executed and when finished executing this 
@@ -975,19 +1096,6 @@ namespace NAnt.Core {
                     endTarget = Properties[NAntPropertyOnSuccess];
                 } else {
                     endTarget = Properties[NAntPropertyOnFailure];
-                }
-
-                // TO-DO : remove this after release of NAnt 0.8.4 or so
-                string deprecatedFailureTarget = Properties["nant.failure"];
-
-                if (!StringUtils.IsNullOrEmpty(deprecatedFailureTarget)) {
-                    Log(Level.Warning, "The 'nant.failure' property has been deprecated." + 
-                        " You should use '{0}' to designate the target that should be" + 
-                        " executed when the build fails." + Environment.NewLine, 
-                        Project.NAntPropertyOnFailure);
-                    if (error != null) {
-                        Execute(deprecatedFailureTarget);
-                    }
                 }
 
                 if (!StringUtils.IsNullOrEmpty(endTarget)) {
@@ -1195,8 +1303,6 @@ namespace NAnt.Core {
         ///         <item>nant.project.buildfile (if doc has baseuri)</item>
         ///         <item>nant.project.basedir</item>
         ///         <item>nant.project.default = defaultTarget</item>
-        ///         <item>nant.tasks.[name] = true</item>
-        ///         <item>nant.tasks.[name].location = AssemblyFileName</item>
         ///     </list>
         /// </summary>
         /// <param name="doc">An <see cref="XmlDocument" /> representing the project definition.</param>
@@ -1237,14 +1343,14 @@ namespace NAnt.Core {
             if (StringUtils.IsNullOrEmpty(doc.DocumentElement.NamespaceURI)) {
                 string defURI;
 
-                if (doc.DocumentElement.Attributes["xmlns", "nant"] == null) {
+                XmlAttribute nantNS = doc.DocumentElement.Attributes["xmlns", "nant"];
+                if (nantNS == null) {
                     defURI = @"http://none";
                 } else {
-                    defURI = doc.DocumentElement.Attributes["xmlns", "nant"].Value;
+                    defURI = nantNS.Value;
                 }
 
                 XmlAttribute attr = doc.CreateAttribute("xmlns");
-
                 attr.Value = defURI;
                 doc.DocumentElement.Attributes.Append(attr);
             }
@@ -1322,7 +1428,7 @@ namespace NAnt.Core {
 
         /// <summary>
         /// This method is only meant to be used by the <see cref="Project"/> 
-        /// class and <see cref="NAnt.Core.Tasks.IncludeTask"/>.
+        /// class and <see cref="T:NAnt.Core.Tasks.IncludeTask"/>.
         /// </summary>
         internal void InitializeProjectDocument(XmlDocument doc) {
             // load line and column number information into position map
@@ -1385,7 +1491,7 @@ namespace NAnt.Core {
         /// </summary>
         /// <param name="uriOrFilePath">
         /// <para>The full path to the build file.</para>
-        /// <para>This can be of any form that <see cref="XmlDocument.Load(string)" /> accepts.</para>
+        /// <para>This can be of any form that <see cref="M:XmlDocument.Load(string)" /> accepts.</para>
         /// </param>
         /// <returns>
         /// An <see cref="XmlDocument" /> based on the specified project 
@@ -1464,11 +1570,7 @@ namespace NAnt.Core {
             }
 
             Properties["nant.settings.currentframework.frameworkassemblydirectory"] = TargetFramework.FrameworkAssemblyDirectory.FullName;
-            if (TargetFramework.RuntimeEngine != null) {
-                Properties["nant.settings.currentframework.runtimeengine"] = TargetFramework.RuntimeEngine.Name;
-            } else {
-                Properties["nant.settings.currentframework.runtimeengine"] = "";
-            }
+            Properties["nant.settings.currentframework.runtimeengine"] = TargetFramework.RuntimeEngine;
         }
 
         private XmlNode GetConfigurationNode() {

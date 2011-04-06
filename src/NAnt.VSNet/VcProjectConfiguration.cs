@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -435,7 +435,7 @@ namespace NAnt.VSNet {
                 case "targetdir": // E.g. C:\Doc...\Visual Studio Projects\WindowsApplications1\bin\Debug
                     return Path.GetDirectoryName(TargetPath) + (TargetPath.EndsWith(
                         Path.DirectorySeparatorChar.ToString(CultureInfo.InvariantCulture)) 
-                        ? "" : Path.DirectorySeparatorChar.ToString(CultureInfo.InvariantCulture));
+                        ? string.Empty : Path.DirectorySeparatorChar.ToString(CultureInfo.InvariantCulture));
                 default:
                     return base.ExpandMacro(macro);
             }
@@ -766,7 +766,7 @@ namespace NAnt.VSNet {
             public FileInfo ImportLibrary {
                 get {
                     string defaultImportLibrary = null;
-                    if (!Project.IsManaged(_projectConfig.Name)) {
+                    if (!Project.IsManaged(_projectConfig.SolutionTask.SolutionConfig)) {
                         defaultImportLibrary = "$(OutDir)/$(TargetName).lib";
                     }
 

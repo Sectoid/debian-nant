@@ -15,7 +15,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -205,7 +205,7 @@ namespace NAnt.VSNet {
                 case "targetdir": // Absolute path to OutDir
                     return OutputDir.FullName + (OutputDir.FullName.EndsWith(
                         Path.DirectorySeparatorChar.ToString(CultureInfo.InvariantCulture)) 
-                        ? "" : Path.DirectorySeparatorChar.ToString(CultureInfo.InvariantCulture));
+                        ? string.Empty : Path.DirectorySeparatorChar.ToString(CultureInfo.InvariantCulture));
                 case "platformname": // .NET, does this value ever change?
                     return PlatformName;
             }
@@ -232,9 +232,9 @@ namespace NAnt.VSNet {
 
         /// <summary>
         /// Is called each time a regular expression match is found during a 
-        /// <see cref="Regex.Replace(string, MatchEvaluator)" /> operation.
+        /// <see cref="M:Regex.Replace(string, MatchEvaluator)" /> operation.
         /// </summary>
-        /// <param name="m">The <see cref="Match" /> resulting from a single regular expression match during a <see cref="Regex.Replace(string, MatchEvaluator)" />.</param>
+        /// <param name="m">The <see cref="Match" /> resulting from a single regular expression match during a <see cref="M:Regex.Replace(string, MatchEvaluator)" />.</param>
         /// <returns>
         /// The expanded <see cref="Match" />.
         /// </returns>

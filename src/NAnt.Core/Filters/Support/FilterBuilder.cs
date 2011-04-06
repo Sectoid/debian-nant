@@ -23,30 +23,50 @@ using System.Reflection;
 using System.Security.Permissions;
 
 using NAnt.Core.Attributes;
+using NAnt.Core.Extensibility;
 
 namespace NAnt.Core.Filters {
-    public class FilterBuilder {
+    public class FilterBuilder : ExtensionBuilder {
         #region Public Instance Constructors
 
         /// <summary>
         /// Creates a new instance of the <see cref="FilterBuilder" /> class
-        /// for the specified <see cref="Filter" /> class in the <see cref="Assembly" />
-        /// specified.
+        /// for the specified <see cref="Filter" /> class in the specified
+        /// <see cref="Assembly" />.
         /// </summary>
+        /// <remarks>
+        /// An <see cref="ExtensionAssembly" /> for the specified <see cref="Assembly" />
+        /// is cached for future use.
+        /// </remarks>
         /// <param name="assembly">The <see cref="Assembly" /> containing the <see cref="Filter" />.</param>
         /// <param name="className">The class representing the <see cref="Filter" />.</param>
-        public FilterBuilder(Assembly assembly, string className) {
-            _assembly = assembly;
+        public FilterBuilder (Assembly assembly, string className)
+            : this (ExtensionAssembly.Create (assembly), className) {
+        }
+
+        #endregion Public Instance Constructors
+
+        #region Internal Instance Constructors
+
+        /// <summary>
+        /// Creates a new instance of the <see cref="FilterBuilder" /> class
+        /// for the specified <see cref="Filter" /> class in the specified
+        /// <see cref="ExtensionAssembly" />.
+        /// </summary>
+        /// <param name="extensionAssembly">The <see cref="ExtensionAssembly" /> containing the <see cref="Filter" />.</param>
+        /// <param name="className">The class representing the <see cref="Filter" />.</param>
+        internal FilterBuilder(ExtensionAssembly extensionAssembly, string className) : base (extensionAssembly) {
             _className = className;
 
             // get Element name from attribute
-            ElementNameAttribute ElementNameAttribute = (ElementNameAttribute) 
-                Attribute.GetCustomAttribute(assembly.GetType(ClassName), typeof(ElementNameAttribute));
+            ElementNameAttribute ElementNameAttribute = (ElementNameAttribute)
+                Attribute.GetCustomAttribute(Assembly.GetType(ClassName),
+                typeof(ElementNameAttribute));
 
             _filterName = ElementNameAttribute.Name;
         }
 
-        #endregion Public Instance Constructors
+        #endregion Internal Instance Constructors
 
         #region Public Instance Properties
 
@@ -60,17 +80,6 @@ namespace NAnt.Core.Filters {
         /// </value>
         public string ClassName {
             get { return _className; }
-        }
-
-        /// <summary>
-        /// Gets the <see cref="Assembly" /> from which the filter will be
-        /// created.
-        /// </summary>
-        /// <value>
-        /// The <see cref="Assembly" /> containing the filter.
-        /// </value>
-        public Assembly Assembly {
-            get { return _assembly; }
         }
 
         /// <summary>
@@ -92,8 +101,8 @@ namespace NAnt.Core.Filters {
         [ReflectionPermission(SecurityAction.Demand, Flags=ReflectionPermissionFlag.NoFlags)]
         public Filter CreateFilter() {
             return (Filter) Assembly.CreateInstance(
-                ClassName, 
-                true, 
+                ClassName,
+                true,
                 BindingFlags.Public | BindingFlags.Instance,
                 null,
                 null,
@@ -105,9 +114,8 @@ namespace NAnt.Core.Filters {
 
         #region Private Instance Fields
 
-        private Assembly _assembly;
-        private string _className;
-        private string _filterName;
+        private readonly string _className;
+        private readonly string _filterName;
 
         #endregion Private Instance Fields
     }

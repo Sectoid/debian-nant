@@ -17,7 +17,7 @@
 //
 // Dmitry Jemerov <yole@yole.ru>
 // Scott Ford (sford@RJKTECH.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 // Hani Atassi (haniatassi@users.sourceforge.net)
 
 using System;
@@ -58,7 +58,6 @@ namespace NAnt.VSNet {
                 throw new ArgumentNullException("projectPath");
             }
 
-            _htPlatformConfigurations = CollectionsUtil.CreateCaseInsensitiveHashtable();
             _references = new ArrayList();
             _clArgMap = VcArgumentMap.CreateCLArgumentMap();
             _linkerArgMap = VcArgumentMap.CreateLinkerArgumentMap();
@@ -71,8 +70,7 @@ namespace NAnt.VSNet {
             XmlNodeList configurationNodes = xmlDefinition.SelectNodes("//Configurations/Configuration");
             foreach (XmlElement configElem in configurationNodes) {
                 VcProjectConfiguration config = new VcProjectConfiguration(configElem, this, OutputDir);
-                ProjectConfigurations[config.Name] = config;
-                _htPlatformConfigurations[config.FullName] = config;
+                ProjectConfigurations[new Configuration (config.Name, config.PlatformName)] = config;
             }
 
             XmlNodeList references = xmlDefinition.SelectNodes("//References/child::*");
@@ -102,8 +100,9 @@ namespace NAnt.VSNet {
                 if (fileConfigList.Count > 0) {
                     htFileConfigurations = CollectionsUtil.CreateCaseInsensitiveHashtable(fileConfigList.Count);
                     foreach (XmlElement fileConfigElem in fileConfigList) {
-                        string fileConfigName = fileConfigElem.GetAttribute("Name");
-                        VcProjectConfiguration projectConfig = (VcProjectConfiguration) _htPlatformConfigurations[fileConfigName];
+                        Configuration fileConfig = Configuration.Parse (
+                            fileConfigElem.GetAttribute("Name"));
+                        VcProjectConfiguration projectConfig = (VcProjectConfiguration) ProjectConfigurations[fileConfig];
                         htFileConfigurations[projectConfig.Name] = new VcFileConfiguration(
                             relPath, parentName, fileConfigElem, projectConfig, outputDir);
                     }
@@ -121,7 +120,7 @@ namespace NAnt.VSNet {
                     case ".rc":
                         // ensure there's a file configuration for each project 
                         // configuration
-                        foreach (VcProjectConfiguration projectConfig in _htPlatformConfigurations.Values) {
+                        foreach (VcProjectConfiguration projectConfig in ProjectConfigurations.Values) {
                             // if file configuration for project config existed 
                             // in project file, then skip this project config
                             if (htFileConfigurations != null && htFileConfigurations.ContainsKey(projectConfig.Name)) {
@@ -187,7 +186,7 @@ namespace NAnt.VSNet {
         /// Get the location of the project.
         /// </summary>
         /// <value>
-        /// <see cref="NAnt.VSNet.ProjectLocation.Local" />.
+        /// <see cref="T:NAnt.VSNet.ProjectLocation.Local" />.
         /// </value>
         /// <remarks>
         /// For now, we only support local Visual C++ projects.
@@ -239,7 +238,7 @@ namespace NAnt.VSNet {
         /// (exe), and Managed Extensions are enabled; otherwise, 
         /// <see langword="false" />.
         /// </returns>
-        public override bool IsManaged(string solutionConfiguration) {
+        public override bool IsManaged(Configuration solutionConfiguration) {
             VcProjectConfiguration projectConfig = (VcProjectConfiguration)
                 BuildConfigurations[solutionConfiguration];
             return (projectConfig.Type == VcProjectConfiguration.ConfigurationType.DynamicLibrary ||
@@ -283,7 +282,7 @@ namespace NAnt.VSNet {
             return GetProductVersion(docElement);
         }
 
-        protected override BuildResult Build(string solutionConfiguration) {
+        protected override BuildResult Build(Configuration solutionConfiguration) {
             // prepare the project for build
             Prepare(solutionConfiguration);
 
@@ -366,6 +365,11 @@ namespace NAnt.VSNet {
                         CopyFile(srcFile, destFile, SolutionTask);
                     }
                 }
+            }
+
+            // run custom build steps
+            if (!RunCustomBuildStep(solutionConfiguration, projectConfig)) {
+                return BuildResult.Failed;
             }
 
             // perform post-build actions
@@ -498,7 +502,7 @@ namespace NAnt.VSNet {
             }
         }
 
-        private void BuildCPPFiles(ArrayList fileNames, string solutionConfiguration, VcConfigurationBase fileConfig) {
+        private void BuildCPPFiles(ArrayList fileNames, Configuration solutionConfiguration, VcConfigurationBase fileConfig) {
             // obtain project configuration (corresponding with solution configuration)
             VcProjectConfiguration projectConfig = (VcProjectConfiguration) BuildConfigurations[solutionConfiguration];
 
@@ -1103,6 +1107,83 @@ namespace NAnt.VSNet {
             }
         }
 
+        private bool RunCustomBuildStep(Configuration solutionConfiguration, VcProjectConfiguration projectConfig) {
+            // check if a custom build step is configured
+            string commandLine = projectConfig.GetToolSetting(VcConfigurationBase.CustomBuildTool,
+                "CommandLine");
+            if (StringUtils.IsNullOrEmpty(commandLine)) {
+                return true;
+            }
+
+            DateTime oldestOutputFile = DateTime.MinValue;
+
+            string outputs = projectConfig.GetToolSetting(VcConfigurationBase.CustomBuildTool,
+                "Outputs");
+            if (!StringUtils.IsNullOrEmpty(outputs)) {
+                foreach (string output in outputs.Split(';')) {
+                    if (output.Length == 0) {
+                        continue;
+                    }
+
+                    string outputFile = Path.Combine (ProjectDirectory.FullName,
+                        output);
+                    if (File.Exists(outputFile)) {
+                        DateTime lastWriteTime = File.GetLastWriteTime(outputFile);
+                        if (lastWriteTime < oldestOutputFile || oldestOutputFile == DateTime.MinValue) {
+                            oldestOutputFile = lastWriteTime;
+                        }
+                    }
+                }
+            }
+
+            bool runCustomBuildStep = false;
+
+            // when at least one of the output files of the custom build step
+            // does not exist or is older than the project output file, then
+            // the custom build step must be executed
+            string projectOutputFile = GetOutputPath(solutionConfiguration);
+            if (projectOutputFile != null && File.Exists (projectOutputFile)) {
+                DateTime lastWriteTime = File.GetLastWriteTime(projectOutputFile);
+                if (lastWriteTime > oldestOutputFile) {
+                    runCustomBuildStep = true;
+                }
+            }
+
+            // if one of the additional dependencies was updated after the oldest
+            // output file of the custom build step, then the custom build step
+            // must also be executed
+            if (!runCustomBuildStep) {
+                string additionalDependencies = projectConfig.GetToolSetting(
+                    VcConfigurationBase.CustomBuildTool, "AdditionalDependencies");
+                if (!StringUtils.IsNullOrEmpty(additionalDependencies)) {
+                    foreach (string dependency in additionalDependencies.Split(';')) {
+                        if (dependency.Length == 0) {
+                            continue;
+                        }
+
+                        string dependencyFile = Path.Combine (ProjectDirectory.FullName,
+                            dependency);
+                        if (File.Exists (dependencyFile)) {
+                            DateTime lastWriteTime  = File.GetLastWriteTime(dependencyFile);
+                            if (lastWriteTime > oldestOutputFile) {
+                                runCustomBuildStep = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!runCustomBuildStep) {
+                return true;
+            }
+
+            string description = projectConfig.GetToolSetting(VcConfigurationBase.CustomBuildTool,
+                "Description", "Performing Custom Build Step");
+            Log(Level.Info, description);
+            return ExecuteBuildEvent("Custom-Build", commandLine, projectConfig);
+        }
+
         private void RunLibrarian(VcProjectConfiguration projectConfig) {
             // check if there's anything to do
             if (projectConfig.ObjFiles.Count == 0) {
@@ -1204,7 +1285,7 @@ namespace NAnt.VSNet {
             ExecuteInProjectDirectory(libTask);
         }
 
-        private void RunLinker(string solutionConfiguration) {
+        private void RunLinker(Configuration solutionConfiguration) {
             const string noinherit = "$(noinherit)";
 
             // obtain project configuration (corresponding with solution configuration)
@@ -1701,15 +1782,8 @@ namespace NAnt.VSNet {
 
         #region Public Static Methods
 
-        public static string LoadGuid(string fileName) {
-            try {
-                XmlDocument doc = LoadXmlDocument(fileName);
-                return doc.DocumentElement.GetAttribute("ProjectGUID");
-            } catch (Exception ex) {
-                throw new BuildException(string.Format(CultureInfo.InvariantCulture,
-                    "Error loading GUID of project '{0}'.", fileName), 
-                    Location.UnknownLocation, ex);
-            }
+        public static string LoadGuid(XmlElement xmlDefinition) {
+            return xmlDefinition.GetAttribute("ProjectGUID");
         }
 
         /// <summary>
@@ -1835,7 +1909,6 @@ namespace NAnt.VSNet {
         private readonly string _projectPath;
         private string _guid;
         private readonly ArrayList _references;
-        private readonly Hashtable _htPlatformConfigurations;
 
         private readonly VcArgumentMap _clArgMap;
         private readonly VcArgumentMap _linkerArgMap;

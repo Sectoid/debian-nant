@@ -17,7 +17,7 @@
 //
 // Gerry Shaw (gerry_shaw@yahoo.com)
 // Scott Hernandez (ScottHernandez@hotmail.com)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
@@ -30,6 +30,7 @@ using System.Threading;
 using System.Xml;
 
 using NAnt.Core.Attributes;
+using NAnt.Core.Configuration;
 using NAnt.Core.Types;
 using NAnt.Core.Util;
 
@@ -37,6 +38,19 @@ namespace NAnt.Core.Tasks {
     /// <summary>
     /// Provides the abstract base class for tasks that execute external applications.
     /// </summary>
+    /// <remarks>
+    ///   <para>
+    ///   When a <see cref="ProgramLocationAttribute" /> is applied to the
+    ///   deriving class and <see cref="ExeName" /> does not return an
+    ///   absolute path, then the program to execute will first be searched for
+    ///   in the location specified by <see cref="ProgramLocationAttribute.LocationType" />.
+    ///   </para>
+    ///   <para>
+    ///   If the program does not exist in that location, then the list of tool
+    ///   paths of the current target framework will be scanned in the order in
+    ///   which they are defined in the NAnt configuration file.
+    ///   </para>
+    /// </remarks>
     [Serializable()]
     public abstract class ExternalProgramBase : Task {
         #region Private Instance Fields
@@ -44,12 +58,15 @@ namespace NAnt.Core.Tasks {
         private StreamReader _stdError;
         private StreamReader _stdOut;
         private ArgumentCollection _arguments = new ArgumentCollection();
-        private bool _useRuntimeEngine;
+        private ManagedExecution _managed = ManagedExecution.Default;
         private string _exeName;
         private int _timeout = Int32.MaxValue;
         private TextWriter _outputWriter;
         private TextWriter _errorWriter;
         private int _exitCode = UnknownExitCode;
+        private bool _spawn;
+        private int _processId = 0;
+        private bool _useRuntimeEngine;
 
         #endregion Private Instance Fields
 
@@ -178,17 +195,71 @@ namespace NAnt.Core.Tasks {
         }
 
         /// <summary>
-        /// Specifies whether the external program should be executed using a 
-        /// runtime engine, if configured. The default is <see langword="false" />.
+        /// Specifies whether the external program is a managed application
+        /// which should be executed using a runtime engine, if configured. 
+        /// The default is <see langword="false" />.
         /// </summary>
         /// <value>
         /// <see langword="true" /> if the external program should be executed 
         /// using a runtime engine; otherwise, <see langword="false" />.
         /// </value>
+        /// <remarks>
+        ///   <para>
+        ///   The value of <see cref="UseRuntimeEngine" /> is only used from
+        ///   <see cref="Managed" />, and then only if its value is set to
+        ///   <see cref="ManagedExecution.Default" />. In which case
+        ///   <see cref="Managed" /> returns <see cref="ManagedExecution.Auto" />
+        ///   if <see cref="UseRuntimeEngine" /> is <see langword="true" />.
+        ///   </para>
+        ///   <para>
+        ///   In all other cases, the value of <see cref="UseRuntimeEngine" />
+        ///   is ignored.
+        ///   </para>
+        /// </remarks>
         [FrameworkConfigurable("useruntimeengine")]
+        [Obsolete("Use the managed attribute and Managed property instead.", false)]
         public virtual bool UseRuntimeEngine {
             get { return _useRuntimeEngine; }
             set { _useRuntimeEngine = value; }
+        }
+
+        /// <summary>
+        /// Specifies whether the external program should be treated as a managed
+        /// application, possibly forcing it to be executed under the currently
+        /// targeted version of the CLR.
+        /// </summary>
+        /// <value>
+        /// A <see cref="ManagedExecution" /> indicating how the program should
+        /// be treated.
+        /// </value>
+        /// <remarks>
+        ///   <para>
+        ///   If <see cref="Managed" /> is set to <see cref="ManagedExecution.Default" />,
+        ///   which is the default value, and <see cref="UseRuntimeEngine" /> is
+        ///   <see langword="true" /> then <see cref="ManagedExecution.Auto" />
+        ///   is returned.
+        ///   </para>
+        ///   <para>
+        ///   When the changing <see cref="Managed" /> to <see cref="ManagedExecution.Default" />,
+        ///   then <see cref="UseRuntimeEngine" /> is set to <see langword="false" />;
+        ///   otherwise, it is changed to <see langword="true" />.
+        ///   </para>
+        /// </remarks>
+        [FrameworkConfigurable("managed")]
+        public virtual ManagedExecution Managed {
+            get {
+                // deal with cases where UseRuntimeEngine is overridden to
+                // return true by default
+                if (UseRuntimeEngine && _managed == ManagedExecution.Default) {
+                    return ManagedExecution.Auto;
+                }
+
+                return _managed;
+            }
+            set {
+                _managed = value;
+                UseRuntimeEngine = (value != ManagedExecution.Default);
+            }
         }
 
         /// <summary>
@@ -249,6 +320,32 @@ namespace NAnt.Core.Tasks {
             get { return _exitCode; }
         }
 
+        /// <summary>
+        /// Gets the unique identifier for the spawned application.
+        /// </summary>
+        protected int ProcessId {
+            get {
+                if (!Spawn) {
+                    throw new InvalidOperationException ("The unique identifier" +
+                        " only applies to spawned applications.");
+                }
+                if (_processId == 0) {
+                    throw new InvalidOperationException ("The application was not started.");
+                }
+                return _processId;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the application should be
+        /// spawned. If you spawn an application, its output will not be logged
+        /// by NAnt. The default is <see langword="false" />.
+        /// </summary>
+        public virtual bool Spawn {
+            get { return _spawn; }
+            set { _spawn = value; }
+        }
+
         #endregion Public Instance Properties
 
         #region Override implementation of Task
@@ -268,6 +365,12 @@ namespace NAnt.Core.Tasks {
             try {
                 // Start the external process
                 Process process = StartProcess();
+
+                if (Spawn) {
+                    _processId = process.Id;
+                    return;
+                }
+
                 outputThread = new Thread(new ThreadStart(StreamReaderThread_Output));
                 errorThread = new Thread(new ThreadStart(StreamReaderThread_Error));
 
@@ -347,13 +450,7 @@ namespace NAnt.Core.Tasks {
             get {
                 // append any nested <arg> arguments to the command line
                 StringBuilder arguments = new StringBuilder(ProgramArguments);
-
-                foreach (Argument arg in Arguments) {
-                    if (arg.IfDefined && !arg.UnlessDefined) {
-                        arguments.Append(' ');
-                        arguments.Append(arg.ToString());
-                    }
-                }
+                Arguments.ToString(arguments);
                 return arguments.ToString();
             }
         }
@@ -368,27 +465,39 @@ namespace NAnt.Core.Tasks {
         /// </summary>
         /// <param name="process">The <see cref="Process" /> of which the <see cref="ProcessStartInfo" /> should be updated.</param>
         protected virtual void PrepareProcess(Process process){
+            ManagedExecutionMode executionMode = ManagedExecutionMode;
+
             // create process (redirect standard output to temp buffer)
-            if (Project.TargetFramework != null && UseRuntimeEngine && Project.TargetFramework.RuntimeEngine != null) {
-                process.StartInfo.FileName = Project.TargetFramework.RuntimeEngine.FullName;
-                process.StartInfo.Arguments = string.Format(CultureInfo.InvariantCulture, "\"{0}\" {1}", ProgramFileName, CommandLine);
+            if (executionMode != null && executionMode.Engine != null) {
+                process.StartInfo.FileName = executionMode.Engine.Program.FullName;
+                StringBuilder arguments = new StringBuilder();
+                executionMode.Engine.Arguments.ToString (arguments);
+                if (arguments.Length >= 0) {
+                    arguments.Append (' ');
+                }
+                arguments.AppendFormat("\"{0}\" {1}", ProgramFileName, CommandLine);
+                process.StartInfo.Arguments = arguments.ToString();
             } else {
                 process.StartInfo.FileName = ProgramFileName;
                 process.StartInfo.Arguments = CommandLine;
             }
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
-            //required to allow redirects
+            if (!Spawn) {
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+            }
+            // required to allow redirects and allow environment variables to
+            // be set
             process.StartInfo.UseShellExecute = false;
-            // do not start process in new window
-            process.StartInfo.CreateNoWindow = true;
+            // do not start process in new window unless we're spawning (if not,
+            // the console output of spawned application is not displayed on MS)
+            process.StartInfo.CreateNoWindow = !Spawn;
             process.StartInfo.WorkingDirectory = BaseDirectory.FullName;
 
             // set framework-specific environment variables if executing the 
             // external process using the runtime engine of the currently
             // active framework
-            if (Project.TargetFramework != null && UseRuntimeEngine) {
-                foreach (EnvironmentVariable environmentVariable in Project.TargetFramework.EnvironmentVariables) {
+            if (executionMode != null) {
+                foreach (EnvironmentVariable environmentVariable in executionMode.Environment.EnvironmentVariables) {
                     if (environmentVariable.IfDefined && !environmentVariable.UnlessDefined) {
                         if (environmentVariable.Value == null) {
                             process.StartInfo.EnvironmentVariables[environmentVariable.VariableName] = "";
@@ -430,7 +539,9 @@ namespace NAnt.Core.Tasks {
 
         #region Private Instance Methods
 
-        /// <summary>        /// Reads from the stream until the external program is ended.        /// </summary>
+        /// <summary>
+        /// Reads from the stream until the external program is ended.
+        /// </summary>
         private void StreamReaderThread_Output() {
             StreamReader reader = _stdOut;
             bool doAppend = OutputAppend;
@@ -443,18 +554,25 @@ namespace NAnt.Core.Tasks {
 
                 // ensure only one thread writes to the log at any time
                 lock (_lockObject) {
-                    OutputWriter.WriteLine(logContents);
                     if (Output != null) {
                         StreamWriter writer = new StreamWriter(Output.FullName, doAppend);
                         writer.WriteLine(logContents);
                         doAppend = true;
                         writer.Close();
+                    } else {
+                        OutputWriter.WriteLine(logContents);
                     }
                 }
             }
-            OutputWriter.Flush();
+
+            lock (_lockObject) {
+                OutputWriter.Flush();
+            }
         }
-        /// <summary>        /// Reads from the stream until the external program is ended.        /// </summary>
+
+        /// <summary>
+        /// Reads from the stream until the external program is ended.
+        /// </summary>
         private void StreamReaderThread_Error() {
             StreamReader reader = _stdError;
             bool doAppend = OutputAppend;
@@ -476,7 +594,10 @@ namespace NAnt.Core.Tasks {
                     }
                 }
             }
-            ErrorWriter.Flush();
+
+            lock (_lockObject) {
+                ErrorWriter.Flush();
+            }
         }
 
         /// <summary>
@@ -531,11 +652,33 @@ namespace NAnt.Core.Tasks {
                         }
                         break;
                 }
+
+                if (!File.Exists (fullPath)) {
+                    string toolPath = Project.TargetFramework.GetToolPath (
+                        ExeName + ".exe");
+                    if (toolPath != null) {
+                        fullPath = toolPath;
+                    }
+                }
             } else {
                 // rely on it being on the path.
                 fullPath = ExeName;
             }
             return fullPath;
+        }
+
+        private ManagedExecutionMode ManagedExecutionMode {
+            get {
+                if (Project.TargetFramework == null || Managed == ManagedExecution.Default) {
+                    return null;
+                }
+
+                Runtime runtime = Project.TargetFramework.Runtime;
+                if (runtime != null) {
+                    return runtime.Modes.GetExecutionMode (Managed);
+                }
+                return null;
+            }
         }
 
         #endregion Private Instance Methods

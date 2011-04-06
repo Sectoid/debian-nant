@@ -17,16 +17,18 @@
 //
 // Ian Maclean (imaclean@gmail.com)
 // Jaroslaw Kowalski (jkowalski@users.sourceforge.net)
-// Gert Driesen (gert.driesen@ardatis.com)
+// Gert Driesen (driesen@users.sourceforge.net)
 
 using System;
 using System.Collections;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
 
 using NAnt.Core;
 using NAnt.Core.Attributes;
+using NAnt.Core.Configuration;
 using NAnt.Core.Types;
 using NAnt.Core.Util;
 
@@ -77,6 +79,131 @@ namespace NAnt.Core.Functions {
                 assembly = Assembly.GetExecutingAssembly();
             }
             return assembly;
+        }
+
+        /// <summary>
+        /// Searches the probing paths of the current target framework for the
+        /// specified file.
+        /// </summary>
+        /// <param name="fileName">The name of the file to search for.</param>
+        /// <returns>
+        /// The absolute path to <paramref name="fileName" /> if found in one of the
+        /// configured probing; otherwise, an error is reported.
+        /// </returns>
+        /// <exception cref="FileNotFoundException"><paramref name="fileName" /> could not be found in the configured probing paths.</exception>
+        /// <remarks>
+        ///   <para>
+        ///   The (relative) probing paths are resolved relative to the base
+        ///   directory of the appdomain in which NAnt is running.
+        ///   </para>
+        ///   <para>
+        ///   The configured probing paths are scanned recursively in the order
+        ///   in which they are defined in the framework configuration.
+        ///   </para>
+        ///   <para>
+        ///   The file name to search should include the extension.
+        ///   </para>
+        /// </remarks>
+        /// <example>
+        ///   <para>
+        ///   Compile an assembly referencing the <c>nunit.framework</c> assembly
+        ///   for the current target framework that is shipped as part of the
+        ///   NAnt distribution.
+        ///   </para>
+        ///   <code>
+        ///     <![CDATA[
+        /// <csc target="library" output="NAnt.Core.Tests.dll">
+        ///     <sources basedir="NAnt.Core">
+        ///         <include name="**/*.cs" />
+        ///     </sources>
+        ///     <references>
+        ///         <include name="NAnt.Core.dll" />
+        ///         <include name="${framework::get-lib-path('nunit.framework.dll')}" />
+        ///     </references>
+        /// </csc>
+        ///     ]]>
+        ///   </code>
+        /// </example>
+        [Function("scan-probing-paths")]
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public string ScanProbingPaths(string fileName) {
+            string libPath = null;
+
+            FrameworkInfo fi = Project.TargetFramework;
+            if (fi.Runtime != null) {
+                string[] probingPaths = fi.Runtime.ProbingPaths.GetDirectories();
+                libPath = FileUtils.ResolveFile(probingPaths, fileName, true);
+            }
+
+            if (libPath == null) {
+                throw new FileNotFoundException (string.Format (CultureInfo.InvariantCulture,
+                    "\"{0}\" could not be found in any of the configured " +
+                    "probing paths.", fileName));
+            }
+            return libPath;
+        }
+
+        /// <summary>
+        /// Searches the probing paths of the current target framework for the
+        /// specified file.
+        /// </summary>
+        /// <param name="baseDirectory">The directory to use a base directory for the probing paths.</param>
+        /// <param name="fileName">The name of the file to search for.</param>
+        /// <returns>
+        /// The absolute path to <paramref name="fileName" /> if found in one of the
+        /// configured probing; otherwise, an error is reported.
+        /// </returns>
+        /// <exception cref="FileNotFoundException"><paramref name="fileName" /> could not be found in the configured probing paths.</exception>
+        /// <remarks>
+        ///   <para>
+        ///   The (relative) probing paths are resolved relative to the specified
+        ///   base directory.
+        ///   </para>
+        ///   <para>
+        ///   The configured probing paths are scanned recursively in the order
+        ///   in which they are defined in the framework configuration.
+        ///   </para>
+        ///   <para>
+        ///   The file name to search should include the extension.
+        ///   </para>
+        /// </remarks>
+        /// <example>
+        ///   <para>
+        ///   Compile an assembly referencing the <c>nunit.framework</c> assembly
+        ///   for the current target framework that is shipped as part of the
+        ///   NAnt distribution.
+        ///   </para>
+        ///   <code>
+        ///     <![CDATA[
+        /// <csc target="library" output="NAnt.Core.Tests.dll">
+        ///     <sources basedir="NAnt.Core">
+        ///         <include name="**/*.cs" />
+        ///     </sources>
+        ///     <references>
+        ///         <include name="NAnt.Core.dll" />
+        ///         <include name="${framework::get-lib-path('nunit.framework.dll')}" />
+        ///     </references>
+        /// </csc>
+        ///     ]]>
+        ///   </code>
+        /// </example>
+        [Function("scan-probing-paths")]
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public string ScanProbingPaths(string baseDirectory, string fileName) {
+            string libPath = null;
+
+            FrameworkInfo fi = Project.TargetFramework;
+            if (fi.Runtime != null) {
+                string[] probingPaths = fi.Runtime.ProbingPaths.GetDirectories(baseDirectory);
+                libPath = FileUtils.ResolveFile(probingPaths, fileName, true);
+            }
+
+            if (libPath == null) {
+                throw new FileNotFoundException (string.Format (CultureInfo.InvariantCulture,
+                    "\"{0}\" could not be found in any of the configured " +
+                    "probing paths.", fileName));
+            }
+            return libPath;
         }
 
         #endregion Public Instance Methods
@@ -373,242 +500,6 @@ namespace NAnt.Core.Functions {
         #endregion Public Instance Methods
     }
 
-    [FunctionSet("framework", "NAnt")]
-    public class FrameworkFunctions : FunctionSetBase {
-        #region Public Instance Constructors
-
-        public FrameworkFunctions(Project project, PropertyDictionary properties) : base(project, properties) {
-        }
-
-        #endregion Public Instance Constructors
-
-        #region Public Instance Methods
-
-        /// <summary>
-        /// Checks whether the specified framework exists.
-        /// </summary>
-        /// <param name="name">The framework to test.</param>
-        /// <returns>
-        /// <see langword="true" /> if the specified framework exists; otherwise,
-        /// <see langword="false" />.
-        /// </returns>
-        [Function("exists")]
-        public bool Exists(string name) {
-            return Project.Frameworks.ContainsKey(name);
-        }
-
-        /// <summary>
-        /// Checks whether the SDK for the specified framework is installed.
-        /// </summary>
-        /// <param name="name">The framework to test.</param>
-        /// <returns>
-        /// <see langword="true" /> if the SDK for specified framework is installed; 
-        /// otherwise, <see langword="false" />.
-        /// </returns>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("sdk-exists")]
-        public bool SdkExists(string name) {
-            if (Project.Frameworks.ContainsKey(name)) {
-                return (Project.Frameworks[name].SdkDirectory != null);
-            } else {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Gets the identifier of the current target framework.
-        /// </summary>
-        /// <returns>
-        /// The identifier of the current target framework.
-        /// </returns>
-        [Function("get-target-framework")]
-        public string GetTargetFramework() {
-            return Project.TargetFramework.Name;
-        }
-
-        /// <summary>
-        /// Gets the identifier of the runtime framework.
-        /// </summary>
-        /// <returns>
-        /// The identifier of the runtime framework.
-        /// </returns>
-        [Function("get-runtime-framework")]
-        public string GetRuntimeFramework() {
-            return Project.RuntimeFramework.Name;
-        }
-
-        /// <summary>
-        /// Gets the family of the specified framework.
-        /// </summary>
-        /// <param name="framework">The framework of which the family should be returned.</param>
-        /// <returns>
-        /// The family of the specified framework.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("get-family")]
-        public string GetFamily(string framework) {
-            // ensure the framework is valid
-            CheckFramework(framework);
-            // return the family of the specified framework
-            return Project.Frameworks[framework].Family;
-        }
-
-        /// <summary>
-        /// Gets the version of the specified framework.
-        /// </summary>
-        /// <param name="framework">The framework of which the version should be returned.</param>
-        /// <returns>
-        /// The version of the specified framework.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("get-version")]
-        public Version GetVersion(string framework) {
-            // ensure the framework is valid
-            CheckFramework(framework);
-            // return the family of the specified framework
-            return Project.Frameworks[framework].Version;
-        }
-
-        /// <summary>
-        /// Gets the description of the specified framework.
-        /// </summary>
-        /// <param name="framework">The framework of which the description should be returned.</param>
-        /// <returns>
-        /// The description of the specified framework.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("get-description")]
-        public string GetDescription(string framework) {
-            // ensure the framework is valid
-            CheckFramework(framework);
-            // return the description of the specified framework
-            return Project.Frameworks[framework].Description;
-        }
-
-        /// <summary>
-        /// Gets the Common Language Runtime version of the specified framework.
-        /// </summary>
-        /// <param name="framework">The framework of which the Common Language Runtime version should be returned.</param>
-        /// <returns>
-        /// The Common Language Runtime version of the specified framework.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("get-clr-version")]
-        public Version GetClrVersion(string framework) {
-            // ensure the framework is valid
-            CheckFramework(framework);
-            // return the family of the specified framework
-            return Project.Frameworks[framework].ClrVersion;
-        }
-
-        /// <summary>
-        /// Gets the framework directory of the specified framework.
-        /// </summary>
-        /// <param name="framework">The framework of which the framework directory should be returned.</param>
-        /// <returns>
-        /// The framework directory of the specified framework.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("get-framework-directory")]
-        public string GetFrameworkDirectory(string framework) {
-            // ensure the framework is valid
-            CheckFramework(framework);
-            // return full path to the framework directory of the specified framework
-            return Project.Frameworks[framework].FrameworkDirectory.FullName;
-        }
-
-        /// <summary>
-        /// Gets the assembly directory of the specified framework.
-        /// </summary>
-        /// <param name="framework">The framework of which the assembly directory should be returned.</param>
-        /// <returns>
-        /// The assembly directory of the specified framework.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("get-assembly-directory")]
-        public string GetAssemblyDirectory(string framework) {
-            // ensure the framework is valid
-            CheckFramework(framework);
-            // return full path to the assembly directory of the specified framework
-            return Project.Frameworks[framework].FrameworkAssemblyDirectory.FullName;
-        }
-
-        /// <summary>
-        /// Gets the SDK directory of the specified framework.
-        /// </summary>
-        /// <param name="framework">The framework of which the SDK directory should be returned.</param>
-        /// <returns>
-        /// The SDK directory of the specified framework, or an empty 
-        /// <see cref="string" /> if the SDK of the specified framework is not 
-        /// installed.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("get-sdk-directory")]
-        public string GetSdkDirectory(string framework) {
-            // ensure the framework is valid
-            CheckFramework(framework);
-            // get the SDK directory of the specified framework
-            DirectoryInfo sdkDirectory = Project.Frameworks[framework].SdkDirectory;
-            // return directory or empty string if SDK is not installed
-            return (sdkDirectory != null) ? sdkDirectory.FullName : string.Empty;
-        }
-
-        /// <summary>
-        /// Gets the runtime engine of the specified framework.
-        /// </summary>
-        /// <param name="framework">The framework of which the runtime engine should be returned.</param>
-        /// <returns>
-        /// The full path to the runtime engine of the specified framework, or
-        /// an empty <see cref="string" /> if no runtime engine is defined
-        /// for the specified framework.
-        /// </returns>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        /// <seealso cref="FrameworkFunctions.GetRuntimeFramework()" />
-        /// <seealso cref="FrameworkFunctions.GetTargetFramework()" />
-        [Function("get-runtime-engine")]
-        public string GetRuntimeEngine(string framework) {
-            // ensure the framework is valid
-            CheckFramework(framework);
-            // getthe runtime engine of the specified framework
-            FileInfo runtimeEngine = Project.Frameworks[framework].RuntimeEngine;
-            // return runtime engine or empty string if not defined
-            return (runtimeEngine != null) ? runtimeEngine.FullName : string.Empty;
-        }
-
-        #endregion Public Instance Methods
-
-        #region Private Instance Methods
-
-        /// <summary>
-        /// Checks whether the specified framework is valid.
-        /// </summary>
-        /// <param name="framework">The framework to check.</param>
-        /// <exception cref="ArgumentException"><paramref name="framework" /> is not a valid framework identifier.</exception>
-        private void CheckFramework(string framework) {
-            if (!Project.Frameworks.ContainsKey(framework)) {
-                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture,
-                    ResourceUtils.GetString("NA1096"), framework));
-            }
-        }
-
-        #endregion Private Instance Methods
-    }
-
     [FunctionSet("platform", "NAnt")]
     public class PlatformFunctions : FunctionSetBase {
         #region Public Instance Constructors
@@ -636,22 +527,36 @@ namespace NAnt.Core.Functions {
         #region Public Static Methods
 
         /// <summary>
-        /// Checks whether NAnt is running on the win32 platform.
+        /// Checks whether NAnt is running on Windows (and not just 32-bit Windows
+        /// as the name may lead you to believe).
         /// </summary>
         /// <returns>
-        /// <see langword="true" /> if NAnt is running on the win32 platform;
+        /// <see langword="true" /> if NAnt is running on Windows;
         /// otherwise, <see langword="false" />.
         /// </returns>
         [Function("is-win32")]
+        [Obsolete("Use the is-windows function instead.")]
         public static bool IsWin32() {
-            return PlatformHelper.IsWin32;
+            return PlatformHelper.IsWindows;
         }
 
         /// <summary>
-        /// Checks whether NAnt is running on unix.
+        /// Checks whether NAnt is running on Windows.
         /// </summary>
         /// <returns>
-        /// <see langword="true" /> if NAnt is running on unix;
+        /// <see langword="true" /> if NAnt is running on Windows;
+        /// otherwise, <see langword="false" />.
+        /// </returns>
+        [Function("is-windows")]
+        public static bool IsWindows() {
+            return PlatformHelper.IsWindows;
+        }
+
+        /// <summary>
+        /// Checks whether NAnt is running on Unix.
+        /// </summary>
+        /// <returns>
+        /// <see langword="true" /> if NAnt is running on Unix;
         /// otherwise, <see langword="false" />.
         /// </returns>
         [Function("is-unix")]

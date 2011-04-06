@@ -89,10 +89,10 @@ namespace NAnt.Core.Tasks {
     public class PropertyTask : Task {
         #region Private Instance Fields
 
-        private string _name = null;
+        private string _name;
         private string _value = string.Empty;
-        private bool _readOnly = false;
-        private bool _dynamic = false;
+        private bool _readOnly;
+        private bool _dynamic;
         private bool _overwrite = true;
 
         #endregion Private Instance Fields
@@ -176,17 +176,18 @@ namespace NAnt.Core.Tasks {
                 if (newTargetFramework != null) {
                     if (Project.TargetFramework != null) {
                         if (Project.TargetFramework != newTargetFramework) {
+                            Project.TargetFramework = newTargetFramework;
                             // only output message in build log if target 
                             // framework is actually changed
                             Log(Level.Info, "Target framework changed to \"{0}\".", 
                                 newTargetFramework.Description);
                         }
                     } else {
+                        Project.TargetFramework = newTargetFramework;
                         Log(Level.Info, "Target framework set to \"{0}\".", 
                             newTargetFramework.Description);
 
                     }
-                    Project.TargetFramework = Project.Frameworks[propertyValue];
                     return;
                 } else {
                     ArrayList validvalues = new ArrayList();
