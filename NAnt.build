@@ -928,7 +928,7 @@
             the wrapper is created
         -->
         <echo file="${wrapper}" append="false">#!/bin/sh${environment::newline()}</echo>
-        <echo file="${wrapper}" append="true">exec ${path::combine(install.prefix, 'bin')}/cli ${path::combine(install.nant, 'bin')}/NAnt.exe "$@"</echo>
+        <echo file="${wrapper}" append="true">exec ${path::combine(install.prefix, 'bin')}/cli ${install.nant}/NAnt.exe "$@"</echo>
         <exec program="chmod" commandline="a+x ${path::combine(install.bindir, 'nant')}" />
     </target>
     <target name="rpm" depends="init, build">
